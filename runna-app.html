@@ -1,0 +1,2107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pacer">
+<meta name="theme-color" content="#0A0A0F">
+<title>Pacer — 5K Training</title>
+<link rel="manifest" href="data:application/json,{&quot;name&quot;:&quot;Pacer&quot;,&quot;short_name&quot;:&quot;Pacer&quot;,&quot;display&quot;:&quot;standalone&quot;,&quot;background_color&quot;:&quot;%230A0A0F&quot;,&quot;theme_color&quot;:&quot;%230A0A0F&quot;}">
+<style>
+:root{
+  --bg:#0A0A0F;--surface:#13131A;--surface2:#1C1C27;--border:#2A2A3A;
+  --accent:#00E5A0;--accent-dim:rgba(0,229,160,0.12);
+  --accent2:#7B6FFF;--accent2-dim:rgba(123,111,255,0.12);
+  --warn:#FF6B6B;--warn-dim:rgba(255,107,107,0.12);
+  --text:#F0F0F8;--text2:#8888AA;--text3:#55556A;
+  --nav-h:60px;--radius:16px;--radius-sm:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,'SF Pro Display',system-ui,sans-serif;
+  overscroll-behavior:none;-webkit-font-smoothing:antialiased;}
+#app{display:flex;flex-direction:column;height:100%;min-height:100%;position:relative;}
+
+.screen{display:none;flex-direction:column;position:absolute;inset:0;bottom:var(--nav-h);overflow:hidden;}
+.screen.active{display:flex;}
+.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-top:8px;padding-bottom:24px;}
+.screen-header{padding:16px 20px 0;flex-shrink:0;}
+.screen-title{font-size:26px;font-weight:800;letter-spacing:-0.5px;}
+.screen-sub{font-size:13px;color:var(--text2);margin-top:4px;padding-bottom:4px;}
+
+#nav{position:fixed;bottom:0;left:0;right:0;height:var(--nav-h);
+  background:rgba(10,10,15,0.96);backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  border-top:1px solid var(--border);display:flex;align-items:stretch;z-index:200;}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  background:none;border:none;color:var(--text3);font-size:10px;font-weight:500;cursor:pointer;padding:8px 0;transition:color 0.15s;}
+.nav-btn.active{color:var(--accent);}
+.nav-btn svg{width:22px;height:22px;flex-shrink:0;}
+
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);margin:0 16px 12px;overflow:hidden;}
+.section-header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px 8px;}
+.section-header h2{font-size:18px;font-weight:700;letter-spacing:-0.2px;}
+.see-all{font-size:13px;color:var(--accent);font-weight:600;background:none;border:none;cursor:pointer;padding:4px 0;}
+
+.today-hero{margin:0 16px 12px;background:linear-gradient(135deg,#0E2B1E 0%,#112238 100%);
+  border:1px solid #1A3D2C;border-radius:var(--radius);padding:18px;cursor:pointer;}
+.today-eyebrow{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;}
+.today-run-name{font-size:22px;font-weight:800;letter-spacing:-0.3px;}
+.today-run-desc{font-size:13px;color:var(--text2);margin:6px 0 14px;line-height:1.5;}
+.today-run-meta{display:flex;gap:20px;}
+.trm-item{display:flex;flex-direction:column;gap:2px;}
+.trm-val{font-size:20px;font-weight:800;color:var(--accent);}
+.trm-lbl{font-size:11px;color:var(--text2);}
+.today-cta{margin-top:16px;background:var(--accent);color:var(--bg);font-size:15px;font-weight:800;
+  border:none;border-radius:var(--radius-sm);padding:13px;width:100%;cursor:pointer;display:block;}
+
+.ring-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:130px;height:130px;margin:0 auto 8px;}
+.ring-svg{width:130px;height:130px;transform:rotate(-90deg);}
+.ring-bg{fill:none;stroke:var(--surface2);stroke-width:10;}
+.ring-fill{fill:none;stroke:var(--accent);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset 0.8s ease;stroke-dasharray:351.86;stroke-dashoffset:351.86;}
+.ring-label{position:absolute;display:flex;flex-direction:column;align-items:center;pointer-events:none;}
+.ring-pct{font-size:30px;font-weight:800;letter-spacing:-1px;color:var(--accent);}
+.ring-sub{font-size:11px;color:var(--text2);margin-top:1px;}
+.stat-strip{display:flex;justify-content:space-around;padding:12px 16px 16px;border-top:1px solid var(--border);margin-top:4px;}
+.stat-strip-item{text-align:center;}
+.ss-val{font-size:20px;font-weight:800;}
+.ss-lbl{font-size:11px;color:var(--text2);margin-top:2px;}
+
+.week-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);}
+.week-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;}
+.week-title{font-size:15px;font-weight:700;margin-top:2px;}
+.week-badge{background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:600;padding:3px 8px;border-radius:20px;}
+
+.day-row{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);gap:12px;cursor:default;}
+.day-row.tappable{cursor:pointer;}
+.day-row.tappable:active{background:var(--surface2);}
+.day-row:last-child{border-bottom:none;}
+.day-dot{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+.dot-run{background:var(--accent-dim);color:var(--accent);}
+.dot-rest{background:var(--surface2);color:var(--text3);}
+.dot-done{background:var(--accent);color:var(--bg);}
+.dot-locked{background:var(--surface2);color:var(--text3);opacity:0.5;}
+.day-info{flex:1;min-width:0;}
+.day-name{font-size:13px;font-weight:600;}
+.day-desc{font-size:12px;color:var(--text2);margin-top:2px;}
+.day-meta{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.day-dist{font-size:13px;font-weight:700;color:var(--accent);}
+.day-arrow{color:var(--text3);font-size:18px;line-height:1;}
+
+.pace-guide{margin:0 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.pg-header{padding:14px 16px;border-bottom:1px solid var(--border);}
+.pg-title{font-size:14px;font-weight:700;}
+.pg-sub{font-size:12px;color:var(--text2);margin-top:2px;}
+.pg-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;}
+.pg-row:last-child{border-bottom:none;}
+.pg-swatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.pg-zone{font-size:13px;font-weight:600;flex:1;}
+.pg-right{text-align:right;}
+.pg-pace{font-size:13px;font-weight:700;}
+.pg-feel{font-size:11px;color:var(--text2);margin-top:1px;}
+
+.plan-week-card{margin:0 16px 10px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.plan-week-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;cursor:pointer;}
+.plan-week-header:active{background:var(--surface2);}
+.pwh-left{display:flex;flex-direction:column;gap:2px;}
+.pwh-week{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;text-transform:uppercase;}
+.pwh-title{font-size:15px;font-weight:700;}
+.pwh-right{display:flex;align-items:center;gap:8px;}
+.lock-icon{font-size:14px;}
+.chevron{width:18px;height:18px;color:var(--text3);transition:transform 0.25s ease;flex-shrink:0;}
+.chevron.open{transform:rotate(180deg);}
+.plan-week-days{border-top:1px solid var(--border);display:none;}
+.plan-week-days.open{display:block;}
+.plan-day-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;}
+.plan-day-row:last-child{border-bottom:none;}
+.plan-day-row:active{background:var(--surface2);}
+.plan-day-row.locked{opacity:0.45;cursor:default;pointer-events:none;}
+.pdr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pdr-green{background:var(--accent);}
+.pdr-purple{background:var(--accent2);}
+.pdr-orange{background:#FF9B50;}
+.pdr-grey{background:var(--text3);}
+.pdr-done{background:var(--accent);box-shadow:0 0 0 2px var(--accent-dim);}
+.pdr-day{font-size:12px;color:var(--text2);width:30px;flex-shrink:0;}
+.pdr-name{flex:1;font-size:14px;font-weight:500;}
+.pdr-dist{font-size:13px;font-weight:600;color:var(--text2);}
+.locked-card{opacity:0.55;}
+
+#workout-screen{background:var(--bg);z-index:150;}
+.workout-header{padding:12px 20px 20px;background:linear-gradient(160deg,#0F2A20 0%,var(--bg) 100%);flex-shrink:0;}
+.back-btn{background:none;border:none;color:var(--text2);font-size:15px;font-weight:500;display:flex;align-items:center;gap:4px;padding:6px 0 10px;cursor:pointer;}
+.back-btn svg{width:18px;height:18px;}
+.workout-type-pill{display:inline-block;background:var(--accent-dim);color:var(--accent);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:4px 10px;border-radius:20px;margin-bottom:8px;}
+.workout-title{font-size:24px;font-weight:800;letter-spacing:-0.3px;}
+.workout-meta{display:flex;gap:20px;margin-top:12px;flex-wrap:wrap;}
+.wm-item{display:flex;flex-direction:column;gap:2px;}
+.wm-val{font-size:20px;font-weight:800;}
+.wm-lbl{font-size:11px;color:var(--text2);}
+
+.lap-list{padding:16px 16px 8px;display:flex;flex-direction:column;gap:10px;}
+.lap-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;display:flex;align-items:center;gap:12px;}
+.lap-num{width:28px;height:28px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--text2);flex-shrink:0;}
+.lap-bar{width:4px;border-radius:4px;align-self:stretch;min-height:36px;}
+.lap-green{background:var(--accent);}
+.lap-purple{background:var(--accent2);}
+.lap-orange{background:#FF9B50;}
+.lap-info{flex:1;}
+.lap-name{font-size:14px;font-weight:600;}
+.lap-detail{font-size:12px;color:var(--text2);margin-top:3px;}
+.lap-dist{font-size:14px;font-weight:700;color:var(--accent);flex-shrink:0;}
+.lap-locked{opacity:0.4;}
+
+.coach-tip{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;}
+.coach-tip-title{font-size:13px;font-weight:700;margin-bottom:6px;}
+.coach-tip-text{font-size:13px;color:var(--text2);line-height:1.6;}
+.start-btn-wrap{padding:4px 16px 20px;}
+.start-btn{width:100%;padding:16px;background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;}
+.start-btn:active{opacity:0.85;}
+.start-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
+
+.stat-row{display:flex;gap:10px;padding:0 16px 12px;}
+.stat-box{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 12px;text-align:center;}
+.stat-val{font-size:22px;font-weight:800;}
+.stat-lbl{font-size:11px;color:var(--text2);margin-top:3px;}
+.accent-val{color:var(--accent);}
+
+.log-entry-wrap{position:relative;margin:0 16px 12px;border-radius:var(--radius);overflow:hidden;}
+.log-delete-bg{position:absolute;right:0;top:0;bottom:0;background:var(--warn);display:flex;align-items:center;justify-content:center;width:80px;border-radius:var(--radius);color:white;font-size:13px;font-weight:700;flex-direction:column;gap:4px;}
+.log-entry{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:14px;align-items:flex-start;transition:transform 0.2s ease;will-change:transform;cursor:pointer;}
+.log-entry:active{background:var(--surface2);}
+.log-date-block{background:var(--surface2);border-radius:var(--radius-sm);padding:8px 10px;text-align:center;min-width:48px;}
+.log-day{font-size:22px;font-weight:800;color:var(--accent);line-height:1;}
+.log-mon{font-size:11px;color:var(--text2);font-weight:600;margin-top:2px;}
+.log-details{flex:1;}
+.log-type{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;}
+.log-name{font-size:16px;font-weight:700;}
+.log-stats{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap;}
+.log-stat-val{font-size:14px;font-weight:700;}
+.log-stat-lbl{font-size:11px;color:var(--text2);margin-top:1px;}
+.empty-state{display:flex;flex-direction:column;align-items:center;padding:40px 24px;text-align:center;}
+.empty-icon{font-size:44px;margin-bottom:14px;}
+.empty-title{font-size:18px;font-weight:700;margin-bottom:6px;}
+.empty-desc{font-size:14px;color:var(--text2);line-height:1.5;}
+
+/* MAP */
+#map-container{width:100%;height:240px;background:var(--surface2);border-radius:var(--radius);overflow:hidden;position:relative;}
+#map-container canvas{width:100%;height:100%;}
+.map-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:var(--text3);gap:8px;}
+.map-placeholder span{font-size:32px;}
+.map-placeholder p{font-size:13px;font-weight:500;}
+
+.profile-hero{display:flex;flex-direction:column;align-items:center;padding:20px 20px 16px;}
+.avatar{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--bg);margin-bottom:10px;cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;}
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.avatar-edit-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);color:white;font-size:9px;font-weight:700;text-align:center;padding:4px 0;letter-spacing:0.5px;border-radius:0 0 50px 50px;}
+.profile-name{font-size:22px;font-weight:800;cursor:pointer;}
+.profile-goal{font-size:13px;color:var(--text2);margin-top:3px;}
+.settings-group{margin:0 16px 16px;}
+.settings-label{font-size:11px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;padding:14px 4px 8px;}
+.settings-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.settings-row{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:12px;cursor:pointer;}
+.settings-row:last-child{border-bottom:none;}
+.settings-row:active{background:var(--surface2);}
+.sr-icon{font-size:18px;width:28px;text-align:center;}
+.sr-label{flex:1;font-size:15px;font-weight:500;}
+.sr-value{font-size:14px;color:var(--text2);}
+.sr-arrow{color:var(--text3);margin-left:4px;font-size:16px;}
+
+#modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#modal-overlay.visible{display:flex;}
+.modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);padding:24px 20px 36px;width:100%;max-width:480px;}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:8px;}
+.modal-body{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
+.modal-btn{width:100%;padding:14px;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:block;}
+.modal-btn:active{opacity:0.85;}
+.modal-btn-primary{background:var(--accent);color:var(--bg);}
+.modal-btn-warn{background:var(--warn);color:white;}
+.modal-btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
+
+#edit-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.8);align-items:flex-end;justify-content:center;}
+#edit-overlay.visible{display:flex;}
+.edit-sheet{background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);padding:24px 20px 40px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;}
+.edit-sheet-title{font-size:18px;font-weight:800;margin-bottom:20px;}
+.edit-field{margin-bottom:18px;}
+.edit-label{font-size:12px;font-weight:700;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:8px;}
+.edit-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;font-size:15px;color:var(--text);font-family:inherit;outline:none;-webkit-appearance:none;}
+.edit-input:focus{border-color:var(--accent);}
+.edit-options{display:flex;gap:8px;flex-wrap:wrap;}
+.edit-option{padding:8px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;}
+.edit-option.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.edit-option-block{display:block;width:100%;padding:13px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px;text-align:left;}
+.edit-option-block.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.edit-day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.edit-day-btn{aspect-ratio:1;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.edit-day-btn.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.edit-save-btn{width:100%;padding:15px;background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;margin-top:8px;}
+.edit-cancel-btn{width:100%;padding:13px;background:none;color:var(--text2);font-size:15px;font-weight:600;border:none;cursor:pointer;margin-top:8px;}
+
+/* RUN DETAIL OVERLAY */
+#detail-overlay{display:none;position:fixed;inset:0;z-index:300;background:var(--bg);flex-direction:column;}
+#detail-overlay.visible{display:flex;}
+.detail-header{padding:16px 20px;background:linear-gradient(160deg,#0F2A20 0%,var(--bg) 60%);flex-shrink:0;}
+.detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:32px;}
+.detail-map{margin:16px;border-radius:var(--radius);overflow:hidden;height:200px;background:var(--surface2);position:relative;}
+.pace-chart{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow:hidden;}
+.pace-chart-title{font-size:14px;font-weight:700;margin-bottom:12px;}
+.pace-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.pace-bar-label{font-size:11px;color:var(--text2);width:40px;flex-shrink:0;text-align:right;}
+.pace-bar-track{flex:1;height:24px;background:var(--surface2);border-radius:6px;overflow:hidden;position:relative;}
+.pace-bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 8px;}
+.pace-bar-val{font-size:11px;font-weight:700;color:var(--bg);white-space:nowrap;}
+
+#run-timer{display:none;position:fixed;inset:0;background:var(--bg);z-index:400;flex-direction:column;align-items:center;padding:0 24px;overflow:hidden;}
+#run-timer.visible{display:flex;}
+.timer-top{width:100%;display:flex;justify-content:flex-end;padding-top:16px;}
+.timer-phase{font-size:12px;font-weight:700;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-top:12px;min-height:18px;}
+.timer-display{font-size:80px;font-weight:900;letter-spacing:-3px;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1;}
+.timer-dist{font-size:20px;color:var(--text2);margin-top:8px;font-weight:600;}
+.timer-pace{font-size:14px;color:var(--text3);margin-top:4px;}
+.timer-phase-labels{display:flex;justify-content:space-between;width:100%;font-size:10px;color:var(--text3);margin-top:28px;margin-bottom:6px;}
+.timer-progress-track{width:100%;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+#phase-bar{height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width 0.5s linear;}
+.timer-segment-label{font-size:12px;color:var(--text2);margin-top:8px;font-weight:500;}
+.timer-gps{font-size:11px;color:var(--text3);margin-top:6px;}
+.timer-controls{display:flex;gap:20px;align-items:center;margin-top:32px;}
+.timer-btn{border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.btn-skip{background:var(--surface2);color:var(--text);width:60px;height:60px;font-size:20px;}
+.btn-pause{background:var(--accent);color:var(--bg);width:80px;height:80px;font-size:26px;}
+.btn-stop-run{background:var(--warn-dim);color:var(--warn);width:60px;height:60px;font-size:22px;border:1.5px solid rgba(255,107,107,0.3);}
+.btn-stop-run:active{background:rgba(255,107,107,0.25);}
+.finish-btn{margin-top:24px;background:none;border:1px solid var(--border);color:var(--text2);padding:12px 36px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;}
+.finish-btn:active{background:var(--surface2);}
+
+#complete-overlay{display:none;position:fixed;inset:0;z-index:600;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;text-align:center;}
+#complete-overlay.visible{display:flex;}
+.complete-icon{font-size:64px;margin-bottom:20px;}
+.complete-title{font-size:28px;font-weight:900;letter-spacing:-0.5px;margin-bottom:8px;}
+.complete-sub{font-size:16px;color:var(--text2);margin-bottom:28px;}
+.complete-stats{display:flex;gap:16px;margin-bottom:36px;flex-wrap:wrap;justify-content:center;}
+.complete-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;min-width:90px;}
+.complete-stat-val{font-size:24px;font-weight:800;color:var(--accent);}
+.complete-stat-lbl{font-size:12px;color:var(--text2);margin-top:3px;}
+.complete-done-btn{background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);padding:16px 48px;cursor:pointer;width:100%;}
+
+/* SAFARI BANNER */
+#safari-banner{display:none;position:fixed;bottom:calc(var(--nav-h) + 8px);left:16px;right:16px;z-index:1000;background:#1A2F24;border:1px solid var(--accent);border-radius:var(--radius);padding:14px 16px;}
+.sb-title{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+.sb-steps{font-size:12px;color:var(--text2);line-height:1.8;}
+.sb-close{position:absolute;top:10px;right:14px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;}
+
+.info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- HOME -->
+<div class="screen active" id="home-screen">
+  <div class="scroll-area">
+    <div style="padding:16px 20px 12px;display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-size:13px;color:var(--text2);font-weight:500;" id="greeting-text">Good morning</div>
+        <div style="font-size:26px;font-weight:800;letter-spacing:-0.5px;margin-top:2px;" id="home-week-label">Week 1 of 8</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:20px;">🏃</div>
+    </div>
+    <div class="card" style="margin-bottom:14px;">
+      <div style="padding:16px 16px 0;">
+        <div class="ring-wrap">
+          <svg class="ring-svg" viewBox="0 0 130 130">
+            <circle class="ring-bg" cx="65" cy="65" r="56"/>
+            <circle class="ring-fill" id="progress-ring" cx="65" cy="65" r="56"/>
+          </svg>
+          <div class="ring-label">
+            <div class="ring-pct" id="progress-pct">0%</div>
+            <div class="ring-sub">complete</div>
+          </div>
+        </div>
+      </div>
+      <div class="stat-strip">
+        <div class="stat-strip-item"><div class="ss-val" style="color:var(--accent);" id="home-runs-done">0</div><div class="ss-lbl">Runs done</div></div>
+        <div class="stat-strip-item"><div class="ss-val" id="home-runs-left">24</div><div class="ss-lbl">Remaining</div></div>
+        <div class="stat-strip-item"><div class="ss-val" id="home-total-km">0</div><div class="ss-lbl" id="home-km-lbl">km total</div></div>
+      </div>
+    </div>
+    <div class="section-header"><h2>Today</h2></div>
+    <div id="today-card"></div>
+    <div class="section-header">
+      <h2>This Week</h2>
+      <button class="see-all" onclick="showScreen('plan-screen')">Full plan</button>
+    </div>
+    <div class="card" id="home-week-card"></div>
+    <div class="section-header"><h2>Your Pace Zones</h2></div>
+    <div class="pace-guide" id="pace-guide"></div>
+  </div>
+</div>
+
+<!-- PLAN -->
+<div class="screen" id="plan-screen">
+  <div class="screen-header">
+    <div class="screen-title">Training Plan</div>
+    <div class="screen-sub" id="plan-sub">Beginner 5K · 8 weeks</div>
+  </div>
+  <div class="scroll-area">
+    <div style="height:8px;"></div>
+    <div id="plan-weeks-container"></div>
+    <div style="height:8px;"></div>
+  </div>
+</div>
+
+<!-- LOG -->
+<div class="screen" id="log-screen">
+  <div class="screen-header">
+    <div class="screen-title">Activity Log</div>
+    <div class="screen-sub">Swipe left on a run to delete</div>
+  </div>
+  <div class="scroll-area">
+    <div style="height:8px;"></div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-val accent-val" id="log-count">0</div><div class="stat-lbl">Runs</div></div>
+      <div class="stat-box"><div class="stat-val accent-val" id="log-km">0</div><div class="stat-lbl" id="log-km-lbl">km total</div></div>
+      <div class="stat-box"><div class="stat-val accent-val" id="log-min">0</div><div class="stat-lbl">min total</div></div>
+    </div>
+    <div id="log-entries"></div>
+    <div class="empty-state" id="log-empty">
+      <div class="empty-icon">👟</div>
+      <div class="empty-title">No runs yet</div>
+      <div class="empty-desc">Complete your first workout to see it here.</div>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE -->
+<div class="screen" id="profile-screen">
+  <div class="screen-header"><div class="screen-title">Profile</div></div>
+  <div class="scroll-area">
+    <div style="height:4px;"></div>
+    <div class="profile-hero">
+      <div class="avatar" onclick="openAvatarPicker()" id="profile-avatar">
+        <span id="profile-avatar-initial">R</span>
+        <img id="profile-avatar-img" src="" alt="" style="display:none;">
+        <div class="avatar-edit-hint">EDIT</div>
+      </div>
+      <input type="file" id="avatar-file-input" accept="image/*" style="display:none;" onchange="handleAvatarUpload(event)">
+      <div class="profile-name" onclick="openEdit('name')" id="profile-name-el">Runner</div>
+      <div class="profile-goal" id="profile-goal-el">Beginner · 5K Goal</div>
+    </div>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-val accent-val">8</div><div class="stat-lbl">Weeks</div></div>
+      <div class="stat-box"><div class="stat-val accent-val" id="profile-runs-done">0</div><div class="stat-lbl">Runs done</div></div>
+      <div class="stat-box"><div class="stat-val accent-val" id="profile-streak">0🔥</div><div class="stat-lbl">Streak</div></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">Training</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="openEdit('name')"><span class="sr-icon">👤</span><span class="sr-label">Name</span><span class="sr-value" id="sr-name">Runner</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="openEdit('goal')"><span class="sr-icon">🎯</span><span class="sr-label">Goal</span><span class="sr-value" id="sr-goal">5K</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="openEdit('days')"><span class="sr-icon">📅</span><span class="sr-label">Run days</span><span class="sr-value" id="sr-days">Wed, Fri, Sun</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="openEdit('level')"><span class="sr-icon">📊</span><span class="sr-label">Level</span><span class="sr-value" id="sr-level">Beginner</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="openEdit('units')"><span class="sr-icon">📏</span><span class="sr-label">Distance units</span><span class="sr-value" id="sr-units">km</span><span class="sr-arrow">›</span></div>
+      </div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">App</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="openEdit('music')"><span class="sr-icon">🎵</span><span class="sr-label">Music app</span><span class="sr-value" id="sr-music">Spotify</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="showSafariBanner()"><span class="sr-icon">📱</span><span class="sr-label">Add to Home Screen</span><span class="sr-value">Guide</span><span class="sr-arrow">›</span></div>
+      </div>
+    </div>
+    <div style="height:8px;"></div>
+  </div>
+</div>
+
+<!-- WORKOUT DETAIL -->
+<div class="screen" id="workout-screen" style="z-index:150;">
+  <div class="workout-header">
+    <button class="back-btn" onclick="closeWorkout()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Back
+    </button>
+    <div class="workout-type-pill" id="wo-type">Easy Run</div>
+    <div class="workout-title" id="wo-title">Easy Run</div>
+    <div class="workout-meta">
+      <div class="wm-item"><div class="wm-val" id="wo-dist">3.2 km</div><div class="wm-lbl">Distance</div></div>
+      <div class="wm-item"><div class="wm-val" id="wo-time">35 min</div><div class="wm-lbl">Est. time</div></div>
+      <div class="wm-item"><div class="wm-val" id="wo-effort">Easy</div><div class="wm-lbl">Effort</div></div>
+    </div>
+  </div>
+  <div class="scroll-area">
+    <div id="wo-locked-banner" style="display:none;" class="info-banner">🔒 Complete earlier runs first to unlock this workout.</div>
+    <div class="lap-list" id="wo-laps"></div>
+    <div class="coach-tip">
+      <div class="coach-tip-title">Coach's tip 💡</div>
+      <div class="coach-tip-text" id="wo-tip"></div>
+    </div>
+    <div class="start-btn-wrap">
+      <button class="start-btn" id="wo-start-btn" onclick="startRun()">Start Run →</button>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav id="nav">
+  <button class="nav-btn active" id="nav-home" onclick="showScreen('home-screen')">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>Home
+  </button>
+  <button class="nav-btn" id="nav-plan" onclick="showScreen('plan-screen')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Plan
+  </button>
+  <button class="nav-btn" id="nav-log" onclick="showScreen('log-screen')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Log
+  </button>
+  <button class="nav-btn" id="nav-profile" onclick="showScreen('profile-screen')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Me
+  </button>
+</nav>
+</div><!-- /app -->
+
+<!-- RUN TIMER -->
+<div id="run-timer">
+  <div class="timer-top">
+    <button class="timer-btn btn-stop-run" onclick="promptStopRun()" style="position:absolute;right:20px;top:16px;z-index:10;">✕</button>
+  </div>
+  <div class="timer-phase" id="timer-phase">WARM UP</div>
+  <div class="timer-display" id="timer-display">0:00</div>
+  <div class="timer-dist" id="timer-dist">0.00</div>
+  <div class="timer-pace" id="timer-pace">— avg pace</div>
+  <div class="timer-gps" id="timer-gps">📍 Waiting for GPS...</div>
+  <div class="timer-phase-labels" id="timer-phase-labels"></div>
+  <div class="timer-progress-track"><div id="phase-bar"></div></div>
+  <div class="timer-segment-label" id="timer-seg-label">Phase 1</div>
+  <div class="timer-controls">
+    <button class="timer-btn btn-stop-run" onclick="promptStopRun()">■</button>
+    <button class="timer-btn btn-pause" id="pause-btn" onclick="togglePause()">⏸</button>
+    <button class="timer-btn btn-skip" onclick="nextPhase()">⏭</button>
+  </div>
+  <button class="finish-btn" onclick="finishRun()">Finish &amp; Save Run</button>
+  <button class="finish-btn" id="mute-btn" onclick="toggleMute()" style="margin-top:8px;font-size:12px;padding:8px 24px;">🔊 Voice On</button>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modal-title"></div>
+    <div class="modal-body" id="modal-body"></div>
+    <button class="modal-btn modal-btn-warn" id="modal-confirm-btn" onclick="modalConfirm()">Confirm</button>
+    <button class="modal-btn modal-btn-secondary" id="modal-cancel-btn" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- EDIT SHEET -->
+<div id="edit-overlay" onclick="closeEdit()">
+  <div class="edit-sheet" onclick="event.stopPropagation()" id="edit-content"></div>
+</div>
+
+<!-- RUN DETAIL OVERLAY -->
+<div id="detail-overlay">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closeDetail()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Back
+    </button>
+    <div class="workout-type-pill" id="detail-type">Easy Run</div>
+    <div class="workout-title" id="detail-title">Run Details</div>
+    <div class="workout-meta" id="detail-meta"></div>
+  </div>
+  <div class="detail-scroll">
+    <div class="detail-map" id="detail-map"></div>
+    <div class="pace-chart" id="detail-pace-chart"></div>
+    <div class="lap-list" id="detail-laps"></div>
+  </div>
+</div>
+
+<!-- COMPLETE -->
+<div id="complete-overlay">
+  <div class="complete-icon">🎉</div>
+  <div class="complete-title">Run Complete!</div>
+  <div class="complete-sub">Great work — you're building real fitness.</div>
+  <div class="complete-stats">
+    <div class="complete-stat"><div class="complete-stat-val" id="cs-dist">0.00</div><div class="complete-stat-lbl" id="cs-dist-lbl">km</div></div>
+    <div class="complete-stat"><div class="complete-stat-val" id="cs-time">0:00</div><div class="complete-stat-lbl">time</div></div>
+    <div class="complete-stat"><div class="complete-stat-val" id="cs-pace">—</div><div class="complete-stat-lbl" id="cs-pace-lbl">/km pace</div></div>
+  </div>
+  <button class="complete-done-btn" onclick="dismissComplete()">Back to Home</button>
+</div>
+
+<!-- SAFARI BANNER -->
+<div id="safari-banner">
+  <button class="sb-close" onclick="hideSafariBanner()">✕</button>
+  <div class="sb-title">📱 Add Pacer to Home Screen</div>
+  <div class="sb-steps">
+    1. Tap the <b>···</b> menu at the top of this screen<br>
+    2. Tap <b>"Save as HTML"</b> → file downloads<br>
+    3. Open <b>Files app</b> → tap the file<br>
+    4. It opens in Safari — tap <b>Share ↑</b><br>
+    5. Tap <b>"Add to Home Screen"</b> → Add ✓
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════
+// PERSISTENCE — localStorage
+// ════════════════════════════════════════
+function save() {
+  try {
+    localStorage.setItem('pacer_v4', JSON.stringify({
+      profile: APP.profile,
+      logs: APP.logs,
+      completedRuns: APP.completedRuns,
+    }));
+  } catch(e) {}
+}
+function load() {
+  try {
+    const d = localStorage.getItem('pacer_v4');
+    if (d) {
+      const p = JSON.parse(d);
+      if (p.profile) APP.profile = {...APP.profile, ...p.profile};
+      if (p.logs) APP.logs = p.logs;
+      if (p.completedRuns) APP.completedRuns = p.completedRuns;
+    }
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────────────────────────────
+// BEGINNER RUN/WALK PROGRESSION (evidence-based)
+//
+// Sources: NHS Couch to 5K, Jeff Galloway Run-Walk-Run method,
+// ACSM beginner guidelines, British Journal of Sports Medicine
+// shin splint / stress fracture prevention research.
+//
+// Core principle for Beginners:
+//   • All sessions fixed at 30 min total (incl. warm-up & cool-down)
+//   • Run intervals start at 1 min, grow by ~1 min/week
+//   • Walk recovery shrinks as running fitness builds
+//   • Continuous running introduced at Week 7+ (20 min)
+//     Reason: connective tissue (tendons, shin bones) adapts 3-4x
+//     slower than cardiovascular fitness — premature continuous
+//     running is the #1 cause of shin splints & stress fractures
+//     in new runners. (Magnusson & Kjaer, 2003; BJSM 2015)
+//   • Intermediate/Advanced: standard progressive distance model
+// ─────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────
+// BEGINNER RUN/WALK SCHEDULE (30 min total per session)
+// Each week has 3 distinct session variants so no two runs in a
+// week feel the same — different structure, focus, and purpose.
+//
+// Run A = Technique / short intervals  (Day 1)
+// Run B = Strength / slightly longer   (Day 2, middle of week)
+// Run C = Endurance / longest effort   (Day 3, end of week)
+//
+// Science: NHS C25K, Jeff Galloway, ACSM, BJSM shin splint research
+// Connective tissue adapts 3-4x slower than cardio fitness.
+// No continuous running until Week 7.
+// ─────────────────────────────────────────────────────────────────
+
+// Each week: [runA, runB, runC]
+// runA = technique focus, shortest intervals
+// runB = strength/middle effort
+// runC = endurance, longest continuous blocks
+const BEGINNER_WEEK_SESSIONS = [
+  // Week 1 — First contact
+  [
+    { variant:'A', focus:'Technique',  runMins:1,   walkMins:2,   reps:6,  label:'1 min run / 2 min walk ×6',      tip:'Focus on form only — short, light steps. Nothing else matters this week.' },
+    { variant:'B', focus:'Strength',   runMins:1.5, walkMins:2,   reps:5,  label:'90 sec run / 2 min walk ×5',     tip:'Slightly longer than Run A. Notice how your breathing adapts.' },
+    { variant:'C', focus:'Endurance',  runMins:1,   walkMins:1.5, reps:7,  label:'1 min run / 90 sec walk ×7',     tip:'More reps, shorter rest. Your longest total run time this week.' },
+  ],
+  // Week 2 — Doubling up
+  [
+    { variant:'A', focus:'Technique',  runMins:2,   walkMins:2,   reps:5,  label:'2 min run / 2 min walk ×5',      tip:'2 minutes feels very different from 1. Settle your breathing in the first 30 seconds.' },
+    { variant:'B', focus:'Strength',   runMins:2,   walkMins:1.5, reps:5,  label:'2 min run / 90 sec walk ×5',     tip:'Less recovery than Run A. You\'re stronger than you think.' },
+    { variant:'C', focus:'Endurance',  runMins:3,   walkMins:2,   reps:4,  label:'3 min run / 2 min walk ×4',      tip:'First 3-minute effort. Start slow — the last 30 seconds are the hardest.' },
+  ],
+  // Week 3 — Building blocks
+  [
+    { variant:'A', focus:'Technique',  runMins:3,   walkMins:2,   reps:4,  label:'3 min run / 2 min walk ×4',      tip:'Focus on landing: mid-foot, not heel. Quieter feet = less impact.' },
+    { variant:'B', focus:'Strength',   runMins:3,   walkMins:1,   reps:4,  label:'3 min run / 1 min walk ×4',      tip:'Half the recovery of Run A. Your aerobic system is adapting fast.' },
+    { variant:'C', focus:'Endurance',  runMins:5,   walkMins:2,   reps:3,  label:'5 min run / 2 min walk ×3',      tip:'First 5-minute block. Go slower than you think. You\'ll make it.' },
+  ],
+  // Week 4 — Consolidation (connective tissue week)
+  [
+    { variant:'A', focus:'Technique',  runMins:3,   walkMins:2,   reps:4,  label:'3 min run / 2 min walk ×4',      tip:'Same as last week — intentionally. Bones and tendons are catching up to your fitness.' },
+    { variant:'B', focus:'Strength',   runMins:4,   walkMins:2,   reps:3,  label:'4 min run / 2 min walk ×3',      tip:'Slightly longer blocks. Keep the effort easy — this is a recovery week.' },
+    { variant:'C', focus:'Endurance',  runMins:5,   walkMins:1.5, reps:3,  label:'5 min run / 90 sec walk ×3',     tip:'Less rest than Week 3. Notice how 5 minutes already feels more manageable.' },
+  ],
+  // Week 5 — Breakthrough week
+  [
+    { variant:'A', focus:'Technique',  runMins:5,   walkMins:1.5, reps:3,  label:'5 min run / 90 sec walk ×3',     tip:'Focus on arm drive today — relaxed 90° bend, hands loose, swing forward not across.' },
+    { variant:'B', focus:'Strength',   runMins:6,   walkMins:1,   reps:3,  label:'6 min run / 1 min walk ×3',      tip:'6 minutes continuous. You\'ve never run this long before. Easy pace only.' },
+    { variant:'C', focus:'Endurance',  runMins:8,   walkMins:1.5, reps:2,  label:'8 min run / 90 sec walk ×2',     tip:'8 minutes. This is a landmark. The first 2 minutes are the hardest — push through.' },
+  ],
+  // Week 6 — Near-continuous
+  [
+    { variant:'A', focus:'Technique',  runMins:8,   walkMins:1,   reps:2,  label:'8 min run / 1 min walk ×2',      tip:'Breathing focus: 3 steps in through the nose, 2 out through the mouth.' },
+    { variant:'B', focus:'Strength',   runMins:10,  walkMins:1,   reps:1,  label:'10 min / walk / 10 min',         tip:'Your longest single run block ever. Middle of the session — go slow.' },
+    { variant:'C', focus:'Endurance',  runMins:12,  walkMins:1,   reps:1,  label:'12 min run / 1 min walk / 5 min',tip:'12 consecutive minutes. Nearly half of a 5K. Conversational pace only.' },
+  ],
+  // Week 7 — First continuous runs
+  [
+    { variant:'A', focus:'Technique',  runMins:15,  walkMins:0,   reps:1,  label:'15 min continuous run',           tip:'First fully continuous run. 6 weeks of conditioning means you\'re ready. Go slow.' },
+    { variant:'B', focus:'Strength',   runMins:20,  walkMins:0,   reps:1,  label:'20 min continuous run',           tip:'20 minutes. This is the NHS C25K Week 5 Day 3 milestone. A genuine achievement.' },
+    { variant:'C', focus:'Endurance',  runMins:22,  walkMins:0,   reps:1,  label:'22 min continuous run',           tip:'Your longest run ever. The last 5 minutes will feel hard — that\'s normal. Keep going.' },
+  ],
+  // Week 8 — Race prep
+  [
+    { variant:'A', focus:'Technique',  runMins:20,  walkMins:0,   reps:1,  label:'20 min easy shakeout',            tip:'Easy pace only. Save your legs for race day. Focus on smooth, relaxed form.' },
+    { variant:'B', focus:'Strength',   runMins:25,  walkMins:0,   reps:1,  label:'25 min continuous run',           tip:'25 minutes at easy pace. At 9 min/km you\'re covering ~2.7 km — you\'re ready.' },
+    { variant:'C', focus:'Race',       runMins:30,  walkMins:0,   reps:1,  label:'Race Day — 5K!',                  tip:'Start 10% slower than feels right. You\'ll thank yourself at km 4. Enjoy every step.' },
+  ],
+];
+
+function sessionDistKm(sched, runPace) {
+  const walkPace = 9.5;
+  const warmCoolKm = 10 / walkPace; // 5 min warm + 5 min cool
+  const runKm  = (sched.runMins  * sched.reps) / runPace;
+  const walkKm = (sched.walkMins * sched.reps) / walkPace;
+  return Math.round((warmCoolKm + runKm + walkKm) * 10) / 10;
+}
+
+function makePlan(goal, level, runDays) {
+  const goalConfig = {
+    '5K':      { peak: 5.0,  weeks: 8,  startKm: 2.5 },
+    '10K':     { peak: 10.0, weeks: 10, startKm: 4.0 },
+    'Half':    { peak: 21.1, weeks: 12, startKm: 6.0 },
+    'Marathon':{ peak: 42.2, weeks: 16, startKm: 8.0 },
+  };
+  const levelPace = { Beginner: 9.5, Intermediate: 7.5, Advanced: 6.0 };
+  const levelMult = { Beginner: 1.0, Intermediate: 1.3, Advanced: 1.6 };
+  const cfg        = goalConfig[goal] || goalConfig['5K'];
+  const pace       = levelPace[level] || 9.5;
+  const mult       = levelMult[level] || 1.0;
+  const isBeginner = level === 'Beginner';
+  const weeks      = cfg.weeks;
+  const startKm    = cfg.startKm * (isBeginner ? 1.0 : mult);
+  const peakKm     = cfg.peak;
+  const days       = Math.max(1, runDays.length);
+  const plan       = [];
+
+  const wkNames = [
+    'Getting Started','Building Rhythm','Finding Your Legs','Consolidation',
+    'Building Endurance','Longer Efforts','First Continuous Runs','Race Week',
+    'Consolidation','Race Prep','Final Push','Race Week',
+    'Strength Base','Half Build','Taper','Race Week',
+  ];
+
+  // Non-beginner run type rotation for variation
+  // Pattern per day-slot in a 3-day week: [easy/intervals, tempo/easy, long]
+  // Varies by week to avoid monotony
+  const nonBeginnerVariants = [
+    // w0: all easy (base building)
+    ['easy','easy','long'],
+    // w1: introduce variation
+    ['easy','easy','long'],
+    // w2: first tempo
+    ['easy','tempo','long'],
+    // w3: recovery — lighter
+    ['easy','easy','easy'],
+    // w4: intervals introduced
+    ['intervals','tempo','long'],
+    // w5: build
+    ['intervals','tempo','long'],
+    // w6: peak
+    ['intervals','tempo','long'],
+    // w7+: taper/race
+    ['easy','easy','long'],
+  ];
+
+  for (let w = 0; w < weeks; w++) {
+    const isRecovery = [3,7,11].includes(w);
+    const isRace     = w === weeks - 1;
+    const isTaper    = w === weeks - 2;
+
+    let longRunKm;
+    if (isRace)          longRunKm = cfg.peak;
+    else if (isTaper)    longRunKm = peakKm * 0.75;
+    else if (isRecovery) longRunKm = startKm + (peakKm - startKm) * (w / weeks) * 0.7;
+    else                 longRunKm = startKm + (peakKm - startKm) * (w / (weeks - 2));
+    longRunKm = Math.round(longRunKm * 10) / 10;
+
+    const runs = [];
+    for (let d = 0; d < days; d++) {
+      let type, distKm, sessionVariant = null;
+
+      if (isRace && d === days - 1) {
+        type = 'race'; distKm = cfg.peak;
+      } else if (isBeginner) {
+        const weekSessions = BEGINNER_WEEK_SESSIONS[Math.min(w, BEGINNER_WEEK_SESSIONS.length - 1)];
+        // Map day index to A/B/C — if fewer than 3 run days, pick evenly spaced variants
+        const variantIdx = days === 1 ? 1 : days === 2 ? [0,2][d] : d;
+        const sched = weekSessions[Math.min(variantIdx, weekSessions.length - 1)];
+        sessionVariant = sched;
+        distKm = sessionDistKm(sched, pace);
+        // Week 8 last run = race
+        type = (w === 7 && d === days - 1) ? 'race' : (sched.focus === 'Endurance' && w >= 5 ? 'long' : 'easy');
+      } else {
+        // Non-beginner: vary by week pattern
+        const pattern = nonBeginnerVariants[Math.min(w, nonBeginnerVariants.length - 1)];
+        // Adjust pattern for days count
+        const dayTypes = days === 1 ? ['long'] : days === 2 ? ['easy','long'] : pattern;
+        type = dayTypes[Math.min(d, dayTypes.length - 1)];
+        if (isRecovery) type = 'easy';
+        if (isTaper && d === days-1) type = 'easy';
+
+        const distFactors = { long:1.0, tempo:0.65, intervals:0.55, easy:0.6 };
+        distKm = Math.round(longRunKm * (distFactors[type]||0.6) * 10) / 10;
+        distKm = Math.max(1.5, distKm);
+      }
+
+      const laps = buildLaps(type, distKm, w, mult, level, sessionVariant, d);
+      runs.push({ day: runDays[d], type, distKm, laps, variant: sessionVariant?.variant || null, focus: sessionVariant?.focus || null });
+    }
+
+    plan.push({
+      weekNum: w + 1,
+      title: wkNames[w] || `Week ${w+1}`,
+      isRecovery, isRace, isTaper, runs,
+    });
+  }
+  return plan;
+}
+
+function buildLaps(type, totalKm, weekIndex, mult, level, sessionVariant, dayIndex) {
+  const isBeginner = level === 'Beginner';
+  const laps = [];
+  const warmupKm = Math.min(0.5, totalKm * 0.14);
+  const coolKm   = Math.min(0.5, totalKm * 0.14);
+  const mainKm   = Math.max(0.3, totalKm - warmupKm - coolKm);
+
+  // Warm-up varies slightly by variant to feel different each session
+  const warmupDetails = [
+    '5 min brisk walk — loosen hips, swing arms, take deep breaths',
+    '5 min walk — ankle rolls, knee lifts, get blood to your legs',
+    '5 min walk — focus on posture: tall spine, relaxed shoulders',
+  ];
+  laps.push({ color:'lap-green', name:'Warm-up walk', detail: warmupDetails[dayIndex % 3] || warmupDetails[0], distKm: warmupKm });
+
+  if (type === 'race') {
+    laps.push({ color:'lap-orange', name:'🏁 Race effort', detail:'Start 10% slower than feels right. Build through km 3, push km 4-5.', distKm: mainKm });
+
+  } else if (type === 'intervals' && !isBeginner) {
+    // Vary interval structure by week: shorter+more vs longer+fewer
+    const isShortReps = weekIndex % 2 === 0;
+    const reps = isShortReps ? Math.min(8, Math.max(6, weekIndex)) : Math.min(6, Math.max(4, weekIndex - 1));
+    const fastDist = Math.round(mainKm / reps * 100) / 100;
+    const recoverRatio = weekIndex < 6 ? 0.5 : 0.4; // shorter recovery as fitness builds
+    laps.push({ color:'lap-purple', name:'Warm-up jog', detail:'5 min very easy jog — get legs turning over', distKm: Math.round(fastDist*0.5*100)/100 });
+    for (let i = 0; i < reps; i++) {
+      const label = isShortReps ? `Short fast interval ${i+1}/${reps}` : `Long interval ${i+1}/${reps}`;
+      const detail = isShortReps ? 'Hard effort, 30–45 sec — fast but controlled' : 'Hard effort, 60–90 sec — sustainable hard pace';
+      laps.push({ color:'lap-orange', name: label, detail, distKm: Math.round(fastDist*(1-recoverRatio)*100)/100 });
+      if (i < reps-1) laps.push({ color:'lap-green', name:'Recovery walk/jog', detail:'Full recovery — HR below 70% before next rep', distKm: Math.round(fastDist*recoverRatio*100)/100 });
+    }
+
+  } else if (type === 'tempo' && !isBeginner) {
+    // Vary tempo: straight tempo vs broken tempo vs progressive
+    const tempoStyle = weekIndex % 3;
+    const warmTempo = Math.min(0.4, mainKm * 0.15);
+    if (tempoStyle === 0) {
+      // Straight tempo
+      laps.push({ color:'lap-purple', name:'Build to tempo', detail:'Ease into pace over 5 min', distKm: warmTempo });
+      laps.push({ color:'lap-purple', name:'Sustained tempo', detail:'Comfortably hard — 3-4 words max. Hold it.', distKm: mainKm - warmTempo });
+    } else if (tempoStyle === 1) {
+      // Broken tempo (2 blocks with short rest)
+      const half = Math.round((mainKm - warmTempo) / 2 * 100) / 100;
+      laps.push({ color:'lap-purple', name:'Build to tempo', detail:'Gradually increase', distKm: warmTempo });
+      laps.push({ color:'lap-purple', name:'Tempo block 1', detail:'Comfortably hard — hold your pace', distKm: half });
+      laps.push({ color:'lap-green',  name:'Short recovery', detail:'90 sec easy jog — keep moving', distKm: 0.2 });
+      laps.push({ color:'lap-purple', name:'Tempo block 2', detail:'Match block 1 pace or slightly faster', distKm: Math.max(0.1, half - 0.2) });
+    } else {
+      // Progressive tempo (builds pace through the run)
+      const third = Math.round(mainKm / 3 * 100) / 100;
+      laps.push({ color:'lap-green',  name:'Moderate effort', detail:'Easy-ish — still conversational', distKm: third });
+      laps.push({ color:'lap-purple', name:'Build effort', detail:'Push to comfortably hard', distKm: third });
+      laps.push({ color:'lap-orange', name:'Race pace finish', detail:'Push to near race pace for the last section', distKm: Math.max(0.1, mainKm - third*2) });
+    }
+
+  } else if (isBeginner && sessionVariant) {
+    const { runMins, walkMins, reps, variant, focus } = sessionVariant;
+    const walkPace = 9.5, runPace = 9.5;
+
+    if (reps === 1 && walkMins === 0) {
+      const whyText = weekIndex >= 7
+        ? `${runMins} min at easy conversational pace. You have 7 weeks of conditioning — you\'ve earned this.`
+        : `First ${runMins}-min continuous run! Go slower than feels right. No walk breaks needed.`;
+      laps.push({ color:'lap-green', name:`${runMins} min continuous run`, detail: whyText, distKm: Math.round(mainKm*100)/100 });
+    } else {
+      // Add a focus cue unique to this variant
+      const focusCues = {
+        'A': 'Technique day — focus on short light steps and relaxed arms',
+        'B': 'Strength day — notice your body getting stronger than last session',
+        'C': 'Endurance day — your longest effort this week, go slowest of the three',
+      };
+      if (focusCues[variant]) {
+        laps.push({ color:'lap-purple', name:`Today\'s focus: ${focus}`, detail: focusCues[variant], distKm: 0 });
+      }
+      for (let i = 0; i < reps; i++) {
+        const rd = Math.round((runMins / runPace) * 100) / 100;
+        // Vary run lap labels so they don't all say the same thing
+        const runCues = [
+          'Easy effort — full sentences ok. Slow down if you can\'t talk.',
+          'Same easy pace — check your breathing rhythm.',
+          'Last rep — finish strong but still conversational.',
+          'You\'re doing great — easy pace, light feet.',
+        ];
+        laps.push({
+          color:'lap-green',
+          name: `Run ${i+1}/${reps} — ${runMins} min`,
+          detail: runCues[i % runCues.length],
+          distKm: rd,
+        });
+        if (walkMins > 0) {
+          const wd = Math.round((walkMins / walkPace) * 100) / 100;
+          const walkLabel = walkMins < 1 ? `${walkMins*60} sec` : `${walkMins} min`;
+          const walkCues = [
+            'Active recovery — keep moving, let breathing settle',
+            'Walk tall, arms relaxed — let your heart rate come down',
+            'Recovery walk — shake out your hands and shoulders',
+          ];
+          laps.push({
+            color:'lap-green',
+            name: `Walk break — ${walkLabel}`,
+            detail: walkCues[i % walkCues.length],
+            distKm: wd,
+          });
+        }
+      }
+    }
+
+  } else {
+    // Non-beginner easy or long — vary structure by dayIndex
+    const runPace = level === 'Advanced' ? 6.5 : 7.5;
+    if (type === 'long') {
+      // Long runs: steady vs negative split vs with surge
+      const longStyle = weekIndex % 3;
+      if (longStyle === 0) {
+        laps.push({ color:'lap-green', name:'Steady long run', detail:'Even easy pace throughout — no heroics', distKm: mainKm });
+      } else if (longStyle === 1) {
+        const h = Math.round(mainKm / 2 * 10) / 10;
+        laps.push({ color:'lap-green', name:'First half — easy', detail:'Deliberately slow — easier than feels right', distKm: h });
+        laps.push({ color:'lap-green', name:'Second half — build', detail:'Gradually increase pace — finish stronger than you started', distKm: Math.max(0.1, mainKm - h) });
+      } else {
+        const third = Math.round(mainKm / 3 * 10) / 10;
+        laps.push({ color:'lap-green', name:'Easy miles', detail:'First third: very easy, just warm up', distKm: third });
+        laps.push({ color:'lap-green', name:'Steady miles', detail:'Middle third: settle into comfortable pace', distKm: third });
+        laps.push({ color:'lap-orange', name:'Finish surge', detail:'Last third: push slightly — finish feeling strong', distKm: Math.max(0.1, mainKm - third*2) });
+      }
+    } else if (weekIndex >= 3) {
+      laps.push({ color:'lap-green', name:'Easy run', detail:'Conversational pace — you should be able to hold a chat', distKm: mainKm });
+    } else {
+      const runMins = weekIndex < 2 ? 5 : 8;
+      const walkKm  = 1 / runPace;
+      const runKm   = runMins / runPace;
+      const reps    = Math.max(1, Math.round(mainKm / (runKm + walkKm)));
+      for (let i = 0; i < reps; i++) {
+        laps.push({ color:'lap-green', name:`Run ${i+1}/${reps}`, detail:`${runMins} min easy`, distKm: Math.round(runKm*100)/100 });
+        if (i < reps-1) laps.push({ color:'lap-green', name:'Walk', detail:'1 min recovery', distKm: Math.round(walkKm*100)/100 });
+      }
+    }
+  }
+
+  // Cool-down varies slightly too
+  const coolDetails = [
+    "5 min easy walk — don't skip. Prevents blood pooling and reduces next-day soreness.",
+    '5 min walk — deep breaths in through nose, out through mouth. Heart rate back to normal.',
+    '5 min walk — gentle hip circles and shoulder rolls as you go.',
+  ];
+  laps.push({ color:'lap-green', name:'Cool-down walk', detail: coolDetails[dayIndex % 3] || coolDetails[0], distKm: coolKm });
+  return laps;
+}
+
+function getTips(type, weekIndex, sessionVariant) {
+  // If we have a specific variant tip, use that first
+  if (sessionVariant && sessionVariant.tip) return sessionVariant.tip;
+
+  const tips = {
+    easy: [
+      "Walk breaks are not weakness — they're strategy. The run/walk method cuts injury risk by over 50% for beginners.",
+      "Focus on your breathing rhythm today. Try 3 steps in through the nose, 2 out through the mouth.",
+      "Keep your shoulders relaxed and hands loose. Tension above the waist wastes energy.",
+      "Your easy runs are building the aerobic base that makes every other run better. Trust the slow pace.",
+      "If you feel great, resist the urge to go faster. Saving energy today means better adaptation tomorrow.",
+      "Cadence tip: aim for 160-170 steps per minute. Count your right foot for 30 seconds — it should hit ~40-42 times.",
+      "Your connective tissue is getting stronger. Each run makes tendons and bones more resilient.",
+      "Run by feel today — not by pace. 'Conversational pace' is the only target that matters.",
+    ],
+    tempo: [
+      "Comfortably hard means you can say 3-4 words but not hold a conversation.",
+      "Tempo runs teach your body to clear lactate faster — this is where race fitness is built.",
+      "Hold even effort throughout. Don't go out too fast — the second half should feel the same or stronger.",
+      "Your breathing should be controlled but audible. If you can't hear yourself breathe, go harder.",
+    ],
+    long: [
+      "Go slower than you think. If you could go faster, you are going too fast.",
+      "Long runs build mental toughness as much as physical fitness. Stick with it when it gets hard.",
+      "Fuel before longer runs — eat something 1-2 hrs before. Carry water if over 45 min.",
+      "Negative split goal: second half slightly faster than first. Start very conservatively.",
+    ],
+    intervals: [
+      "Go genuinely hard on the fast bits. Then genuinely recover on the rest. Half-measures don't work.",
+      "Intervals improve VO2 max — your ceiling of cardiovascular fitness. These are the runs that make you faster.",
+      "Quality over quantity. 6 great intervals beat 10 mediocre ones every time.",
+      "The recovery between reps is as important as the effort. Don't cut it short.",
+    ],
+    race: [
+      "Race day tip: start 10% slower than feels right. You'll thank yourself at km 4.",
+      "Don't try anything new today — no new shoes, food, or gear. Trust your training.",
+    ],
+  };
+  const arr = tips[type] || tips.easy;
+  return arr[weekIndex % arr.length];
+}
+
+// ════════════════════════════════════════
+// APP STATE
+// ════════════════════════════════════════
+const APP = {
+  profile: {
+    name: 'Runner', goal: '5K', days: ['Wed','Fri','Sun'],
+    level: 'Beginner', units: 'km', music: 'Spotify',
+    avatarDataUrl: null,
+  },
+  logs: [],          // completed run records
+  completedRuns: {}, // key: "w{week}r{runIndex}" => true
+  plan: [],
+  currentScreen: 'home-screen',
+  prevScreen: 'home-screen',
+  currentWorkout: null, // {weekIndex, runIndex}
+  timer: {
+    interval: null, elapsed: 0, paused: false,
+    distKm: 0, phaseIndex: 0, phaseElapsed: 0,
+    running: false, phases: [],
+    gpsPositions: [], watchId: null,
+    lapDistances: [],
+  },
+};
+
+// ════════════════════════════════════════
+// UNIT HELPERS
+// ════════════════════════════════════════
+function fmt(km) {
+  if (APP.profile.units === 'miles') return (km * 0.621371).toFixed(2) + ' mi';
+  return km.toFixed(2) + ' km';
+}
+function fmtShort(km) {
+  if (APP.profile.units === 'miles') return (km * 0.621371).toFixed(1) + ' mi';
+  return km.toFixed(1) + ' km';
+}
+function unitLabel() { return APP.profile.units === 'miles' ? 'mi' : 'km'; }
+function paceLabel() { return APP.profile.units === 'miles' ? '/mi' : '/km'; }
+function fmtPace(secPerKm) {
+  if (APP.profile.units === 'miles') secPerKm = secPerKm / 0.621371;
+  const m = Math.floor(secPerKm/60), s = Math.round(secPerKm%60);
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
+function getPaceZones() {
+  const lv = APP.profile.level;
+  const zones = {
+    Beginner: [{z:'Easy',lo:510,hi:600},{z:'Tempo',lo:420,hi:510},{z:'Race',lo:360,hi:420}],
+    Intermediate: [{z:'Easy',lo:420,hi:510},{z:'Tempo',lo:330,hi:420},{z:'Race',lo:270,hi:330}],
+    Advanced: [{z:'Easy',lo:330,hi:420},{z:'Tempo',lo:270,hi:330},{z:'Race',lo:210,hi:270}],
+  };
+  return (zones[lv] || zones.Beginner).map(z => ({
+    ...z,
+    loStr: fmtPace(z.lo), hiStr: fmtPace(z.hi),
+  }));
+}
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  load();
+  APP.plan = makePlan(APP.profile.goal, APP.profile.level, APP.profile.days);
+  setGreeting(); setTodayLabel();
+  applyProfileToUI();
+  applyAvatarToUI(APP.profile.avatarDataUrl || null);
+  renderHome(); renderPlan(); updateLogScreen();
+  applyUnitsEverywhere();
+});
+
+// Apply all saved profile values to every UI element on startup
+function applyProfileToUI() {
+  const p = APP.profile;
+  // Name
+  const nameEl = document.getElementById('profile-name-el');
+  const srName = document.getElementById('sr-name');
+  const initEl = document.getElementById('profile-avatar-initial');
+  if (nameEl) nameEl.textContent = p.name || 'Runner';
+  if (srName) srName.textContent = p.name || 'Runner';
+  if (initEl) initEl.textContent = (p.name || 'R')[0].toUpperCase();
+  // Goal
+  const srGoal = document.getElementById('sr-goal');
+  const goalEl = document.getElementById('profile-goal-el');
+  if (srGoal) srGoal.textContent = p.goal || '5K';
+  if (goalEl) goalEl.textContent = `${p.level || 'Beginner'} · ${p.goal || '5K'} Goal`;
+  // Days
+  const srDays = document.getElementById('sr-days');
+  if (srDays) srDays.textContent = (p.days || []).join(', ') || 'None';
+  // Level
+  const srLevel = document.getElementById('sr-level');
+  if (srLevel) srLevel.textContent = p.level || 'Beginner';
+  // Units
+  const srUnits = document.getElementById('sr-units');
+  if (srUnits) srUnits.textContent = p.units || 'km';
+  // Music
+  const srMusic = document.getElementById('sr-music');
+  if (srMusic) srMusic.textContent = p.music || 'Spotify';
+}
+function setGreeting() {
+  const h = new Date().getHours();
+  const el = document.getElementById('greeting-text');
+  if (el) el.textContent = h<12?'Good morning':h<17?'Good afternoon':'Good evening';
+}
+function setTodayLabel() {
+  const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  // already rendered inside today-card
+}
+
+// ════════════════════════════════════════
+// NAVIGATION
+// ════════════════════════════════════════
+const SCREENS=['home-screen','plan-screen','log-screen','profile-screen','workout-screen'];
+const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','profile-screen':'nav-profile'};
+function showScreen(id) {
+  SCREENS.forEach(s=>document.getElementById(s).classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
+  if (id!=='workout-screen') APP.prevScreen=id;
+  APP.currentScreen=id;
+}
+function closeWorkout() { showScreen(APP.prevScreen); }
+function closeDetail() { document.getElementById('detail-overlay').classList.remove('visible'); }
+
+// ════════════════════════════════════════
+// PLAN ACCORDION
+// ════════════════════════════════════════
+function toggleWeek(headerEl) {
+  const days=headerEl.parentElement.querySelector('.plan-week-days');
+  const ch=headerEl.querySelector('.chevron');
+  const open=days.classList.toggle('open');
+  if (ch) ch.classList.toggle('open',open);
+}
+
+// ════════════════════════════════════════
+// RENDER HOME
+// ════════════════════════════════════════
+function renderHome() {
+  const total = APP.plan.reduce((a,w)=>a+w.runs.length,0);
+  const done  = Object.keys(APP.completedRuns).length;
+  const pct   = total > 0 ? Math.round(done/total*100) : 0;
+  const totalKm = APP.logs.reduce((a,l)=>a+parseFloat(l.distKm||0),0);
+
+  // Ring
+  const circumference = 351.86;
+  const offset = circumference - (pct/100)*circumference;
+  const ring = document.getElementById('progress-ring');
+  if (ring) ring.style.strokeDashoffset = offset;
+  const pctEl = document.getElementById('progress-pct');
+  if (pctEl) pctEl.textContent = pct+'%';
+
+  document.getElementById('home-runs-done').textContent = done;
+  document.getElementById('home-runs-left').textContent = Math.max(0, total-done);
+  document.getElementById('home-total-km').textContent = fmtShort(totalKm);
+  document.getElementById('home-km-lbl').textContent = unitLabel()+' total';
+
+  // Progress label
+  const curWeek = getCurrentWeek();
+  document.getElementById('home-week-label').textContent = `Week ${curWeek} of ${APP.plan.length}`;
+
+  // Today card
+  renderTodayCard();
+  // Week card
+  renderHomeWeekCard();
+  // Pace guide
+  renderPaceGuide();
+}
+
+function getCurrentWeek() {
+  for (let w=0; w<APP.plan.length; w++) {
+    const weekRuns = APP.plan[w].runs;
+    const allDone = weekRuns.every((_,ri)=>APP.completedRuns[`w${w}r${ri}`]);
+    if (!allDone) return w+1;
+  }
+  return APP.plan.length;
+}
+
+function getNextRun() {
+  for (let w=0; w<APP.plan.length; w++) {
+    for (let r=0; r<APP.plan[w].runs.length; r++) {
+      if (!APP.completedRuns[`w${w}r${r}`]) return {w,r};
+    }
+  }
+  return null;
+}
+
+function renderTodayCard() {
+  const el = document.getElementById('today-card');
+  const next = getNextRun();
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const today = dayNames[new Date().getDay()];
+
+  if (!next) {
+    el.innerHTML = `<div class="today-hero">
+      <div class="today-eyebrow">You did it! 🏁</div>
+      <div class="today-run-name">Plan Complete!</div>
+      <div class="today-run-desc">Congratulations — you've completed the full training plan. Time to race!</div>
+    </div>`;
+    return;
+  }
+  const week = APP.plan[next.w];
+  const run  = week.runs[next.r];
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day 🏁'};
+  const effort={easy:'Easy',tempo:'Moderate',long:'Easy',intervals:'Hard',race:'Race'};
+  el.innerHTML = `<div class="today-hero" onclick="openWorkoutFromPlan(${next.w},${next.r})">
+    <div class="today-eyebrow">Up Next · Week ${week.weekNum}</div>
+    <div class="today-run-name">${typeLabels[run.type]||'Run'}</div>
+    <div class="today-run-desc">Week ${week.weekNum}: ${week.title}</div>
+    <div class="today-run-meta">
+      <div class="trm-item"><div class="trm-val">${fmtShort(run.distKm)}</div><div class="trm-lbl">${unitLabel()}</div></div>
+      <div class="trm-item"><div class="trm-val">${APP.profile.level==='Beginner'?30:Math.round(run.distKm*9)}</div><div class="trm-lbl">min</div></div>
+      <div class="trm-item"><div class="trm-val">${effort[run.type]||'Easy'}</div><div class="trm-lbl">effort</div></div>
+    </div>
+    <button class="today-cta" onclick="event.stopPropagation();openWorkoutFromPlan(${next.w},${next.r})">View Workout →</button>
+  </div>`;
+}
+
+function renderHomeWeekCard() {
+  const el = document.getElementById('home-week-card');
+  const curW = Math.max(0, getCurrentWeek()-1);
+  const week = APP.plan[curW];
+  if (!week) { el.innerHTML=''; return; }
+  const done = week.runs.filter((_,ri)=>APP.completedRuns[`w${curW}r${ri}`]).length;
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day 🏁'};
+  const allWeekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const runDaySet = new Set(APP.profile.days);
+
+  let rows = '';
+  for (const day of allWeekDays) {
+    const runIndex = week.runs.findIndex(r=>r.day===day);
+    if (runIndex === -1) {
+      rows += `<div class="day-row"><div class="day-dot dot-rest">${day.slice(0,3).toUpperCase()}</div><div class="day-info"><div class="day-name">Rest Day</div><div class="day-desc">Recovery</div></div></div>`;
+    } else {
+      const run = week.runs[runIndex];
+      const isDone = !!APP.completedRuns[`w${curW}r${runIndex}`];
+      const dot = isDone ? 'dot-done' : 'dot-run';
+      rows += `<div class="day-row tappable" onclick="openWorkoutFromPlan(${curW},${runIndex})">
+        <div class="day-dot ${dot}">${day.slice(0,3).toUpperCase()}</div>
+        <div class="day-info"><div class="day-name">${isDone?'✓ ':''} ${typeLabels[run.type]||'Run'}</div><div class="day-desc">${fmtShort(run.distKm)} · ${APP.profile.level==='Beginner'?'30':Math.round(run.distKm*9)} min</div></div>
+        <div class="day-meta"><div class="day-dist">${fmtShort(run.distKm)}</div><div class="day-arrow">›</div></div>
+      </div>`;
+    }
+  }
+  el.innerHTML = `
+    <div class="week-header">
+      <div><div class="week-label">Week ${week.weekNum}</div><div class="week-title">${week.title}</div></div>
+      <div class="week-badge">${done} / ${week.runs.length} runs</div>
+    </div>${rows}`;
+}
+
+function renderPaceGuide() {
+  const el = document.getElementById('pace-guide');
+  const zones = getPaceZones();
+  const colors = ['var(--accent)','var(--accent2)','var(--warn)'];
+  const feels = ['Full sentences','Short phrases','Barely a word'];
+  let rows = '';
+  zones.forEach((z,i) => {
+    rows += `<div class="pg-row">
+      <div class="pg-swatch" style="background:${colors[i]};"></div>
+      <div class="pg-zone">${z.z}</div>
+      <div class="pg-right"><div class="pg-pace">${z.loStr}–${z.hiStr} ${paceLabel()}</div><div class="pg-feel">${feels[i]}</div></div>
+    </div>`;
+  });
+  el.innerHTML = `
+    <div class="pg-header"><div class="pg-title">${APP.profile.level} pace zones</div><div class="pg-sub">Adjust in Profile → Level</div></div>
+    ${rows}`;
+}
+
+// ════════════════════════════════════════
+// RENDER PLAN
+// ════════════════════════════════════════
+function renderPlan() {
+  const el = document.getElementById('plan-weeks-container');
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'🏁 Race Day'};
+  const dotColors={easy:'pdr-green',tempo:'pdr-purple',long:'pdr-green',intervals:'pdr-orange',race:'pdr-orange'};
+  const allDays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  document.getElementById('plan-sub').textContent = `${APP.profile.level} ${APP.profile.goal} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
+
+  let html = '';
+  APP.plan.forEach((week, wi) => {
+    const weekDone = week.runs.every((_,ri)=>APP.completedRuns[`w${wi}r${ri}`]);
+    const curWeekIdx = getCurrentWeek()-1;
+    const isCurrentWeek = wi === curWeekIdx;
+    const isPast = wi < curWeekIdx;
+    const isFuture = wi > curWeekIdx;
+    const isOpen = isCurrentWeek;
+    const isLocked = isFuture && !isPast;
+
+    let dayRows = '';
+    for (const day of allDays) {
+      const ri = week.runs.findIndex(r=>r.day===day);
+      if (ri === -1) {
+        dayRows += `<div class="plan-day-row locked" style="cursor:default;pointer-events:none;">
+          <div class="pdr-dot pdr-grey"></div><div class="pdr-day">${day}</div>
+          <div class="pdr-name" style="color:var(--text3)">Rest</div><div class="pdr-dist">—</div>
+        </div>`;
+      } else {
+        const run = week.runs[ri];
+        const isDone = !!APP.completedRuns[`w${wi}r${ri}`];
+        const lockedRow = isLocked ? 'locked' : '';
+        const dot = isDone ? 'pdr-done' : dotColors[run.type]||'pdr-green';
+        const focusBadgePlan = run.focus ? ` · ${run.focus}` : '';
+        dayRows += `<div class="plan-day-row ${lockedRow}" onclick="${!isLocked?`openWorkoutFromPlan(${wi},${ri})`:''}">
+          <div class="pdr-dot ${dot}"></div>
+          <div class="pdr-day">${day}</div>
+          <div class="pdr-name">${isDone?'✓ ':''}${typeLabels[run.type]||'Run'}${focusBadgePlan}</div>
+          <div class="pdr-dist">${fmtShort(run.distKm)}</div>
+        </div>`;
+      }
+    }
+
+    const lockIcon = isLocked ? '<span class="lock-icon">🔒</span>' : '';
+    const weekClass = isLocked ? 'locked-card' : '';
+    html += `<div class="plan-week-card ${weekClass}">
+      <div class="plan-week-header" onclick="toggleWeek(this)">
+        <div class="pwh-left">
+          <div class="pwh-week">Week ${week.weekNum}${isCurrentWeek?' · Current':''}${weekDone?' · Done ✓':''}</div>
+          <div class="pwh-title">${week.title}</div>
+        </div>
+        <div class="pwh-right">${lockIcon}<svg class="chevron${isOpen?' open':''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
+      </div>
+      <div class="plan-week-days${isOpen?' open':''}">
+        ${dayRows}
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+// ════════════════════════════════════════
+// OPEN WORKOUT
+// ════════════════════════════════════════
+function openWorkoutFromPlan(wi, ri) {
+  const week = APP.plan[wi];
+  const run  = week.runs[ri];
+  if (!week || !run) return;
+
+  // Check if locked (previous run not done)
+  const isLocked = isRunLocked(wi, ri);
+  APP.currentWorkout = {wi, ri};
+
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day 🏁'};
+  const effort={easy:'Easy',tempo:'Moderate',long:'Easy',intervals:'Hard',race:'Race'};
+
+  document.getElementById('wo-type').textContent = typeLabels[run.type]||'Run';
+  document.getElementById('wo-dist').textContent = fmtShort(run.distKm);
+  document.getElementById('wo-time').textContent = (APP.profile.level==='Beginner'?'30':'~'+Math.round(run.distKm*9))+' min';
+  document.getElementById('wo-effort').textContent = effort[run.type]||'Easy';
+
+  // Show focus badge for beginner variants
+  const focusLabels = { A:'Technique Focus', B:'Strength Focus', C:'Endurance Focus' };
+  const focusBadge = run.focus ? `<span style="display:inline-block;background:var(--accent2-dim);color:var(--accent2);font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;margin-left:8px;letter-spacing:0.5px;">${focusLabels[run.variant]||run.focus}</span>` : '';
+  document.getElementById('wo-title').innerHTML = `${typeLabels[run.type]||'Run'} — Week ${week.weekNum} ${focusBadge}`;
+
+  document.getElementById('wo-tip').textContent = getTips(run.type, wi, run.laps[0]?.sessionVariant || null);
+
+  const isDone = !!APP.completedRuns[`w${wi}r${ri}`];
+  const lockedBanner = document.getElementById('wo-locked-banner');
+  lockedBanner.style.display = isLocked ? 'block' : 'none';
+
+  const startBtn = document.getElementById('wo-start-btn');
+  if (isDone) {
+    startBtn.textContent = 'Run Again';
+    startBtn.disabled = false;
+  } else if (isLocked) {
+    startBtn.textContent = '🔒 Complete earlier runs first';
+    startBtn.disabled = true;
+  } else {
+    startBtn.textContent = 'Start Run →';
+    startBtn.disabled = false;
+  }
+
+  // Render laps
+  let lapsHtml = '';
+  run.laps.forEach((lap, i) => {
+    lapsHtml += `<div class="lap-item">
+      <div class="lap-num">${i+1}</div>
+      <div class="lap-bar ${lap.color}"></div>
+      <div class="lap-info"><div class="lap-name">${lap.name}</div><div class="lap-detail">${lap.detail}</div></div>
+      <div class="lap-dist">${fmtShort(lap.distKm)}</div>
+    </div>`;
+  });
+  document.getElementById('wo-laps').innerHTML = lapsHtml;
+
+  showScreen('workout-screen');
+}
+
+function isRunLocked(wi, ri) {
+  // All runs in previous weeks must be done
+  for (let w=0; w<wi; w++) {
+    for (let r=0; r<APP.plan[w].runs.length; r++) {
+      if (!APP.completedRuns[`w${w}r${r}`]) return true;
+    }
+  }
+  // All runs before this one in the same week must be done
+  for (let r=0; r<ri; r++) {
+    if (!APP.completedRuns[`w${wi}r${r}`]) return true;
+  }
+  return false;
+}
+
+// ════════════════════════════════════════
+// GPS
+// ════════════════════════════════════════
+function startGPS() {
+  const t = APP.timer;
+  t.gpsPositions = [];
+  if ('geolocation' in navigator) {
+    const opts = {enableHighAccuracy:true, maximumAge:0, timeout:10000};
+    t.watchId = navigator.geolocation.watchPosition(pos => {
+      t.gpsPositions.push({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+        ts: Date.now(),
+        acc: pos.coords.accuracy,
+      });
+      document.getElementById('timer-gps').textContent = `📍 GPS Active (${t.gpsPositions.length} points)`;
+    }, err => {
+      document.getElementById('timer-gps').textContent = '📍 GPS unavailable — distance estimated';
+    }, opts);
+  } else {
+    document.getElementById('timer-gps').textContent = '📍 GPS not supported — distance estimated';
+  }
+}
+function stopGPS() {
+  if (APP.timer.watchId !== null) {
+    navigator.geolocation.clearWatch(APP.timer.watchId);
+    APP.timer.watchId = null;
+  }
+}
+function calcGPSDistance(positions) {
+  let total = 0;
+  for (let i=1; i<positions.length; i++) {
+    total += haversine(positions[i-1], positions[i]);
+  }
+  return total;
+}
+function haversine(a, b) {
+  const R=6371, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
+  const s=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  return R*2*Math.atan2(Math.sqrt(s),Math.sqrt(1-s));
+}
+
+// ════════════════════════════════════════
+// RUN TIMER
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+// SPEECH ENGINE
+// Uses Web Speech API — built into Safari/iOS, no install needed.
+// Announcements queue so they never overlap.
+// ════════════════════════════════════════
+const SPEECH = {
+  enabled: true,
+  queue: [],
+  speaking: false,
+};
+
+function speak(text, priority) {
+  if (!SPEECH.enabled || !('speechSynthesis' in window)) return;
+  // High priority (lap changes) jump the queue; normal go to back
+  if (priority === 'high') {
+    window.speechSynthesis.cancel();
+    SPEECH.queue = [];
+    SPEECH.speaking = false;
+  }
+  SPEECH.queue.push(text);
+  if (!SPEECH.speaking) flushSpeechQueue();
+}
+
+function flushSpeechQueue() {
+  if (!SPEECH.queue.length) { SPEECH.speaking = false; return; }
+  SPEECH.speaking = true;
+  const text = SPEECH.queue.shift();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.rate  = 0.95;  // slightly slower than default — clearer mid-run
+  utt.pitch = 1.0;
+  utt.volume = 1.0;
+  // Prefer a local English voice if available
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.lang.startsWith('en') && v.localService) || voices.find(v => v.lang.startsWith('en'));
+  if (preferred) utt.voice = preferred;
+  utt.onend = () => { SPEECH.speaking = false; flushSpeechQueue(); };
+  utt.onerror = () => { SPEECH.speaking = false; flushSpeechQueue(); };
+  window.speechSynthesis.speak(utt);
+}
+
+// What to say when entering each lap type
+function lapAnnouncement(lap, lapNum, totalLaps) {
+  const name = (lap.name || '').toLowerCase();
+  const isLast = lapNum === totalLaps;
+  const isRun  = lap.color === 'lap-green' && (name.includes('run') || name.includes('continuous') || name.includes('min'));
+  const isWalk = name.includes('walk') || name.includes('recovery');
+  const isTemp = lap.color === 'lap-purple';
+  const isHard = lap.color === 'lap-orange';
+  const isCool = name.includes('cool');
+  const isWarm = name.includes('warm');
+  const isRace = name.includes('race') || name.includes('🏁');
+  const lapLabel = `Lap ${lapNum} of ${totalLaps}.`;
+
+  if (isWarm)  return `${lapLabel} Warm up walk. Take it easy.`;
+  if (isCool)  return `${lapLabel} Cool down walk. Great work — you did it!`;
+  if (isRace)  return `${lapLabel} Race effort. Start slightly slower than feels right — you'll thank yourself later.`;
+  if (isHard)  return `${lapLabel} Fast interval. Go hard!`;
+  if (isTemp)  return `${lapLabel} Tempo effort. Comfortably hard — just a few words.`;
+  if (isWalk && name.includes('recovery')) return `${lapLabel} Recovery walk. Bring your heart rate down.`;
+  if (isWalk)  return `${lapLabel} Walk break. Keep moving.`;
+  if (name.includes('continuous')) {
+    const mins = name.match(/(\d+)/)?.[1];
+    return mins ? `${lapLabel} Run for ${mins} minutes continuously. Easy conversational pace.` : `${lapLabel} Continuous run. Keep it easy.`;
+  }
+  if (isRun) {
+    const mins = name.match(/(\d+)/)?.[1];
+    return mins ? `${lapLabel} Run for ${mins} minutes. Easy pace.` : `${lapLabel} Start running.`;
+  }
+  return `${lapLabel} ${lap.name}.`;
+}
+
+// What to say 10 seconds before a lap ends
+function countdownAnnouncement(nextLap) {
+  if (!nextLap) return null;
+  const name = (nextLap.name || '').toLowerCase();
+  const isWalk = name.includes('walk') || name.includes('recovery');
+  const isCool = name.includes('cool');
+  const isRace = name.includes('race');
+  const isHard = name.includes('interval') || nextLap.color === 'lap-orange';
+  const mins   = name.match(/(\d+)/)?.[1];
+
+  if (isCool)  return '10 seconds. Nearly there — cool down coming up.';
+  if (isWalk)  return '10 seconds until your walk break.';
+  if (isHard)  return '10 seconds — get ready for your fast interval.';
+  if (isRace)  return '10 seconds — race effort starting soon. You\'ve got this!';
+  if (mins)    return `10 seconds until your ${mins} minute run.`;
+  return '10 seconds until the next section.';
+}
+
+// Mid-lap encouragement (spoken at halfway point of long laps)
+function midLapEncouragement(lap, lapNum) {
+  const name = (lap.name || '').toLowerCase();
+  if (name.includes('continuous') || name.includes('run')) {
+    const lines = [
+      'Halfway through. You\'re doing great — keep your pace steady.',
+      'Halfway. Relax your shoulders and breathe.',
+      'Half way. Light feet, easy breathing. You\'ve got this.',
+      'Halfway through this run. Remember — easy enough to speak.',
+    ];
+    return lines[lapNum % lines.length];
+  }
+  return null;
+}
+
+function startRun() {
+  const cw = APP.currentWorkout;
+  if (!cw) return;
+  const run = APP.plan[cw.wi].runs[cw.ri];
+  const t = APP.timer;
+  if (t.interval) { clearInterval(t.interval); t.interval = null; }
+
+  // Build phases from laps — store estimated duration in seconds per phase
+  const speedMps = 0.00145; // km per tick (1 sec) — ~5.2 km/h
+  t.phases = run.laps.map(l => ({
+    label:    l.name.toUpperCase(),
+    name:     l.name,
+    distKm:   l.distKm,
+    color:    l.color,
+    estSecs:  Math.max(5, Math.round(l.distKm / speedMps)),
+  }));
+
+  t.elapsed     = 0;
+  t.distKm      = 0;
+  t.phaseIndex  = 0;
+  t.phaseElapsed= 0;
+  t.paused      = false;
+  t.running     = true;
+  t.lapDistances= new Array(t.phases.length).fill(0);
+  t.gpsPositions= [];
+  t.spokenMidLap= new Array(t.phases.length).fill(false);
+  t.spokenCountdown = new Array(t.phases.length).fill(false);
+
+  // Phase labels bar
+  const labels = run.laps.slice(0,5).map(l => l.name.split(' ')[0]);
+  document.getElementById('timer-phase-labels').innerHTML = labels.map(l => `<span>${l}</span>`).join('');
+
+  document.getElementById('pause-btn').textContent = '⏸';
+  document.getElementById('timer-dist').textContent = '0.00 ' + unitLabel();
+  document.getElementById('run-timer').classList.add('visible');
+
+  // Announce the start after a short delay (gives iOS time to unlock audio)
+  setTimeout(() => {
+    const firstLap = t.phases[0];
+    speak(`Let\'s go! ${lapAnnouncement(firstLap, 1, t.phases.length)}`, 'high');
+  }, 800);
+
+  updateTimerUI();
+  startGPS();
+  t.interval = setInterval(timerTick, 1000);
+}
+
+function timerTick() {
+  const t = APP.timer;
+  if (t.paused || !t.running) return;
+
+  t.elapsed++;
+
+  // Distance from GPS or fallback simulation
+  const gpsKm = t.gpsPositions.length > 1 ? calcGPSDistance(t.gpsPositions) : 0;
+  if (gpsKm > t.distKm + 0.001) {
+    t.distKm = gpsKm;
+  } else {
+    t.distKm += 0.00145;
+  }
+
+  t.phaseElapsed++;
+  const cp = t.phases[t.phaseIndex];
+  if (!cp) { updateTimerUI(); return; }
+
+  t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + 0.00145;
+  const estSecs  = cp.estSecs;
+  const secsLeft = estSecs - t.phaseElapsed;
+
+  // ── 10-SECOND COUNTDOWN before lap ends ──
+  if (secsLeft === 10 && !t.spokenCountdown[t.phaseIndex]) {
+    t.spokenCountdown[t.phaseIndex] = true;
+    const nextLap = t.phases[t.phaseIndex + 1];
+    if (nextLap) {
+      const msg = countdownAnnouncement(nextLap);
+      if (msg) speak(msg, 'normal');
+    }
+  }
+
+  // ── MID-LAP ENCOURAGEMENT on longer laps ──
+  const midPoint = Math.floor(estSecs / 2);
+  if (
+    t.phaseElapsed === midPoint &&
+    estSecs >= 60 &&              // only for laps > 60 sec
+    !t.spokenMidLap[t.phaseIndex]
+  ) {
+    t.spokenMidLap[t.phaseIndex] = true;
+    const msg = midLapEncouragement(cp, t.phaseIndex);
+    if (msg) speak(msg, 'normal');
+  }
+
+  // ── LAP TRANSITION ──
+  if (t.phaseElapsed >= estSecs && t.phaseIndex < t.phases.length - 1) {
+    t.phaseIndex++;
+    t.phaseElapsed = 0;
+    const newLap   = t.phases[t.phaseIndex];
+    const isLast   = t.phaseIndex === t.phases.length - 1;
+    // Announce new lap immediately with high priority
+    setTimeout(() => {
+      speak(lapAnnouncement(newLap, t.phaseIndex + 1, t.phases.length), 'high');
+    }, 100);
+  }
+
+  updateTimerUI();
+}
+
+function updateTimerUI() {
+  const t = APP.timer;
+  const m=Math.floor(t.elapsed/60), s=t.elapsed%60;
+  document.getElementById('timer-display').textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  document.getElementById('timer-dist').textContent = fmt(t.distKm).replace(' ','');
+  const phase = t.phases[t.phaseIndex];
+  document.getElementById('timer-phase').textContent = phase?phase.label.slice(0,30):'COMPLETE';
+  document.getElementById('timer-seg-label').textContent = `Lap ${t.phaseIndex+1} of ${t.phases.length}`;
+  const totalDist = t.phases.reduce((a,p)=>a+p.distKm,0);
+  document.getElementById('phase-bar').style.width = Math.min(100,(t.distKm/totalDist)*100)+'%';
+  if (t.elapsed>0 && t.distKm>0) {
+    const spk = t.elapsed/t.distKm;
+    document.getElementById('timer-pace').textContent = fmtPace(spk)+' avg pace';
+  }
+}
+
+function toggleMute() {
+  SPEECH.enabled = !SPEECH.enabled;
+  const btn = document.getElementById('mute-btn');
+  if (btn) btn.textContent = SPEECH.enabled ? '🔊 Voice On' : '🔇 Voice Off';
+  if (!SPEECH.enabled) window.speechSynthesis.cancel();
+}
+
+function togglePause() {
+  const t = APP.timer;
+  t.paused = !t.paused;
+  document.getElementById('pause-btn').textContent = t.paused ? '▶' : '⏸';
+  if (t.paused) {
+    window.speechSynthesis.cancel();
+    SPEECH.queue = [];
+    SPEECH.speaking = false;
+  } else {
+    speak('Resuming.', 'high');
+  }
+}
+
+function nextPhase() {
+  const t = APP.timer;
+  if (t.phaseIndex < t.phases.length - 1) {
+    t.phaseIndex++;
+    t.phaseElapsed = 0;
+    window.speechSynthesis.cancel();
+    SPEECH.queue = [];
+    SPEECH.speaking = false;
+    setTimeout(() => {
+      speak(lapAnnouncement(t.phases[t.phaseIndex], t.phaseIndex + 1, t.phases.length), 'high');
+    }, 100);
+    updateTimerUI();
+  }
+}
+function stopRunCleanup() {
+  const t = APP.timer;
+  if (t.interval) { clearInterval(t.interval); t.interval = null; }
+  stopGPS();
+  window.speechSynthesis.cancel();
+  SPEECH.queue = [];
+  SPEECH.speaking = false;
+  t.running = false;
+  t.paused  = false;
+}
+function promptStopRun() {
+  const t=APP.timer; const was=t.paused; t.paused=true;
+  document.getElementById('modal-cancel-btn').onclick=()=>{t.paused=was;closeModal();};
+  document.getElementById('modal-overlay').onclick=(e)=>{
+    if(e.target===document.getElementById('modal-overlay')){t.paused=was;closeModal();}
+  };
+  showModal('End this run?','Your progress will NOT be saved.','End Run',()=>{
+    stopRunCleanup();
+    document.getElementById('run-timer').classList.remove('visible');
+  });
+}
+function finishRun() {
+  const t = APP.timer; const cw = APP.currentWorkout;
+  // Snapshot stats before cleanup
+  const elapsed = t.elapsed;
+  const distKm  = t.distKm;
+  const gpsPos  = [...t.gpsPositions];
+  const lapDists= [...t.lapDistances];
+  const phases  = t.phases.map(p=>({...p}));
+  // Announce then cleanup after a short delay so speech fires first
+  speak('Run complete! Amazing work.', 'high');
+  setTimeout(() => stopRunCleanup(), 1500);
+  document.getElementById('run-timer').classList.remove('visible');
+
+  const m = Math.floor(elapsed/60), s = elapsed%60;
+  const timeStr = `${m}:${s.toString().padStart(2,'0')}`;
+  let paceSecPerKm = 0;
+  if (elapsed > 0 && distKm > 0) paceSecPerKm = elapsed / distKm;
+  const now = new Date();
+  const run = cw ? APP.plan[cw.wi].runs[cw.ri] : null;
+  const logEntry = {
+    id: Date.now(), day: now.getDate(),
+    month: now.toLocaleString('default',{month:'short'}).toUpperCase(),
+    fullDate: now.toISOString(),
+    type: run ? run.type : 'easy',
+    name: run ? (document.getElementById('wo-title').textContent) : 'Run',
+    distKm, timeStr, paceSecPerKm,
+    gpsPositions: gpsPos,
+    lapDistances: lapDists,
+    phases,
+    wi: cw ? cw.wi : null, ri: cw ? cw.ri : null,
+  };
+  APP.logs.unshift(logEntry);
+  if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; }
+  save();
+  renderHome(); renderPlan(); updateLogScreen();
+  document.getElementById('cs-dist').textContent = fmtShort(distKm);
+  document.getElementById('cs-dist-lbl').textContent = unitLabel();
+  document.getElementById('cs-time').textContent = timeStr;
+  document.getElementById('cs-pace').textContent = paceSecPerKm > 0 ? fmtPace(paceSecPerKm) : '—';
+  document.getElementById('cs-pace-lbl').textContent = paceLabel() + ' pace';
+  document.getElementById('complete-overlay').classList.add('visible');
+}
+function dismissComplete() {
+  document.getElementById('complete-overlay').classList.remove('visible');
+  showScreen('home-screen');
+}
+
+// ════════════════════════════════════════
+// LOG SCREEN
+// ════════════════════════════════════════
+function updateLogScreen() {
+  const logs=APP.logs;
+  const empty=document.getElementById('log-empty');
+  const entries=document.getElementById('log-entries');
+  const totalKm=logs.reduce((a,l)=>a+(l.distKm||0),0);
+  const totalMin=logs.reduce((a,l)=>{
+    const p=(l.timeStr||'0:00').split(':');
+    return a+parseInt(p[0])*60+parseInt(p[1]||0);
+  },0);
+  document.getElementById('log-count').textContent=logs.length;
+  document.getElementById('log-km').textContent=fmtShort(totalKm).replace(' '+unitLabel(),'');
+  document.getElementById('log-km-lbl').textContent=unitLabel()+' total';
+  document.getElementById('log-min').textContent=Math.floor(totalMin);
+  const pd=document.getElementById('profile-runs-done');
+  if(pd) pd.textContent=logs.length;
+  if(logs.length===0){empty.style.display='flex';entries.innerHTML='';return;}
+  empty.style.display='none';
+  entries.innerHTML=logs.map(l=>`
+    <div class="log-entry-wrap" id="wrap-${l.id}">
+      <div class="log-delete-bg"><span style="font-size:20px;">🗑</span><span>Delete</span></div>
+      <div class="log-entry" id="entry-${l.id}" data-id="${l.id}"
+        ontouchstart="swipeStart(event,${l.id})" ontouchmove="swipeMove(event,${l.id})" ontouchend="swipeEnd(event,${l.id})"
+        onclick="openRunDetail(${l.id})">
+        <div class="log-date-block"><div class="log-day">${l.day}</div><div class="log-mon">${l.month}</div></div>
+        <div class="log-details">
+          <div class="log-type">${l.type?l.type.toUpperCase():''} · W${(l.wi!=null?l.wi+1:'?')}</div>
+          <div class="log-name">${l.name||'Run'}</div>
+          <div class="log-stats">
+            <div><div class="log-stat-val">${fmtShort(l.distKm||0)}</div><div class="log-stat-lbl">Distance</div></div>
+            <div><div class="log-stat-val">${l.timeStr||'—'}</div><div class="log-stat-lbl">Time</div></div>
+            <div><div class="log-stat-val">${l.paceSecPerKm>0?fmtPace(l.paceSecPerKm):'—'}</div><div class="log-stat-lbl">Pace</div></div>
+          </div>
+        </div>
+        <div style="color:var(--text3);font-size:18px;align-self:center;">›</div>
+      </div>
+    </div>`).join('');
+}
+
+// Swipe to delete
+const swipeState={};
+function swipeStart(e,id){swipeState[id]={startX:e.touches[0].clientX};}
+function swipeMove(e,id){
+  const s=swipeState[id];if(!s)return;
+  const dx=e.touches[0].clientX-s.startX;
+  if(dx<-5){const el=document.getElementById('entry-'+id);if(el)el.style.transform=`translateX(${Math.max(-90,dx)}px)`;}
+}
+function swipeEnd(e,id){
+  const s=swipeState[id];if(!s)return;
+  const dx=e.changedTouches[0].clientX-s.startX;
+  const el=document.getElementById('entry-'+id);
+  if(dx<-50){
+    if(el)el.style.transform='translateX(-90px)';
+    showModal('Delete this run?','This run will be permanently removed from your log.','Delete',()=>deleteRun(id));
+  }else{if(el)el.style.transform='translateX(0)';}
+  delete swipeState[id];
+}
+function deleteRun(id){
+  const log=APP.logs.find(l=>l.id===id);
+  if(log&&log.wi!=null&&log.ri!=null) delete APP.completedRuns[`w${log.wi}r${log.ri}`];
+  APP.logs=APP.logs.filter(l=>l.id!==id);
+  save(); renderHome(); renderPlan(); updateLogScreen();
+}
+
+// ════════════════════════════════════════
+// RUN DETAIL + MAP
+// ════════════════════════════════════════
+function openRunDetail(id) {
+  const log=APP.logs.find(l=>l.id===id);
+  if(!log)return;
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day'};
+  document.getElementById('detail-type').textContent=typeLabels[log.type]||'Run';
+  document.getElementById('detail-title').textContent=log.name||'Run';
+  document.getElementById('detail-meta').innerHTML=`
+    <div class="wm-item"><div class="wm-val">${fmtShort(log.distKm||0)}</div><div class="wm-lbl">Distance</div></div>
+    <div class="wm-item"><div class="wm-val">${log.timeStr||'—'}</div><div class="wm-lbl">Time</div></div>
+    <div class="wm-item"><div class="wm-val">${log.paceSecPerKm>0?fmtPace(log.paceSecPerKm):'—'}</div><div class="wm-lbl">${paceLabel()}</div></div>`;
+  renderDetailMap(log);
+  renderPaceChart(log);
+  renderDetailLaps(log);
+  document.getElementById('detail-overlay').classList.add('visible');
+}
+
+function renderDetailMap(log) {
+  const el=document.getElementById('detail-map');
+  const pts=log.gpsPositions||[];
+  if(pts.length<2){
+    el.innerHTML=`<div class="map-placeholder"><span>🗺️</span><p>No GPS data recorded</p><p style="font-size:11px;margin-top:4px;">Grant location permission before running</p></div>`;
+    return;
+  }
+  // Draw canvas map
+  const canvas=document.createElement('canvas');
+  canvas.width=el.offsetWidth||340; canvas.height=200;
+  el.innerHTML=''; el.appendChild(canvas);
+  const ctx=canvas.getContext('2d');
+  const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats);
+  const minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+  const pad=20;
+  const w=canvas.width-pad*2, h=canvas.height-pad*2;
+  const scaleX=w/(maxLng-minLng||0.001), scaleY=h/(maxLat-minLat||0.001);
+  const toX=lng=>(lng-minLng)*scaleX+pad;
+  const toY=lat=>(maxLat-lat)*scaleY+pad;
+  ctx.fillStyle='#1C1C27'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  // Draw route
+  ctx.strokeStyle='#00E5A0'; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath();
+  pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));});
+  ctx.stroke();
+  // Start/end markers
+  if(pts.length>0){
+    ctx.fillStyle='#00E5A0'; ctx.beginPath(); ctx.arc(toX(pts[0].lng),toY(pts[0].lat),7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#FF6B6B'; ctx.beginPath(); ctx.arc(toX(pts[pts.length-1].lng),toY(pts[pts.length-1].lat),7,0,Math.PI*2); ctx.fill();
+  }
+  // Legend
+  ctx.fillStyle='rgba(10,10,15,0.7)'; ctx.fillRect(8,8,90,32); ctx.fillRect(canvas.width-98,8,90,32);
+  ctx.font='bold 11px -apple-system,system-ui,sans-serif';
+  ctx.fillStyle='#00E5A0'; ctx.fillText('● Start', 16, 28);
+  ctx.fillStyle='#FF6B6B'; ctx.fillText('● Finish', canvas.width-90, 28);
+}
+
+function renderPaceChart(log) {
+  const el=document.getElementById('detail-pace-chart');
+  const laps=log.phases||[];
+  const dists=log.lapDistances||[];
+  if(laps.length===0){el.innerHTML='';return;}
+  // Calculate pace per lap
+  const totalDist=log.distKm||0;
+  const totalSec=log.paceSecPerKm*totalDist;
+  let html=`<div class="pace-chart-title">Lap Analysis</div>`;
+  const maxPace=600; // 10 min/km as max bar
+  laps.forEach((lap,i)=>{
+    const lapDist=dists[i]||lap.distKm||0;
+    // Estimate lap pace proportionally
+    const lapSec=totalDist>0?(lapDist/totalDist)*totalSec:0;
+    const lapPace=lapDist>0?lapSec/lapDist:0;
+    const pct=Math.min(100,(lapPace/maxPace)*100)||20;
+    const colors={
+      'lap-green':'var(--accent)','lap-purple':'var(--accent2)',
+      'lap-orange':'#FF9B50','lap-red':'var(--warn)',
+    };
+    const color=colors[lap.color]||'var(--accent)';
+    html+=`<div class="pace-bar-row">
+      <div class="pace-bar-label">${(lap.label||lap.name||'').split(' ')[0].slice(0,6)}</div>
+      <div class="pace-bar-track">
+        <div class="pace-bar-fill" style="width:${pct}%;background:${color};">
+          <span class="pace-bar-val">${lapPace>0?fmtPace(lapPace):fmtShort(lapDist)}</span>
+        </div>
+      </div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+function renderDetailLaps(log) {
+  const el=document.getElementById('detail-laps');
+  const laps=log.phases||[];
+  const dists=log.lapDistances||[];
+  if(laps.length===0){el.innerHTML='';return;}
+  const colors={'lap-green':'lap-green','lap-purple':'lap-purple','lap-orange':'lap-orange'};
+  let html='';
+  laps.forEach((lap,i)=>{
+    const dist=dists[i]||lap.distKm||0;
+    html+=`<div class="lap-item">
+      <div class="lap-num">${i+1}</div>
+      <div class="lap-bar ${lap.color||'lap-green'}"></div>
+      <div class="lap-info"><div class="lap-name">${lap.label||lap.name||'Lap'}</div><div class="lap-detail">${fmtShort(dist)} completed</div></div>
+      <div class="lap-dist">${fmtShort(dist)}</div>
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+let modalCb=null;
+function showModal(title,body,confirmLabel,onConfirm) {
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-body').textContent=body;
+  document.getElementById('modal-confirm-btn').textContent=confirmLabel||'Confirm';
+  modalCb=onConfirm;
+  document.getElementById('modal-overlay').classList.add('visible');
+}
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('visible');
+  modalCb=null;
+  // Reset overlay click
+  document.getElementById('modal-overlay').onclick=(e)=>{
+    if(e.target===document.getElementById('modal-overlay'))closeModal();
+  };
+  document.getElementById('modal-cancel-btn').onclick=closeModal;
+}
+function modalConfirm(){closeModal();if(typeof modalCb==='function')modalCb();}
+document.getElementById('modal-overlay').onclick=(e)=>{
+  if(e.target===document.getElementById('modal-overlay'))closeModal();
+};
+
+// ════════════════════════════════════════
+// EDIT SHEET
+// ════════════════════════════════════════
+let editKey=null;
+const EDITS = {
+  name:{title:'Your Name',render:p=>`
+    <div class="edit-field"><div class="edit-label">Name</div>
+    <input class="edit-input" id="edit-name-input" type="text" value="${p.name}" maxlength="30" placeholder="Your name"></div>`,
+    save:()=>{const v=document.getElementById('edit-name-input').value.trim()||'Runner';
+      APP.profile.name=v;
+      document.getElementById('profile-name-el').textContent=v;
+      document.getElementById('sr-name').textContent=v;
+      // Only update initial if no photo set
+      if (!APP.profile.avatarDataUrl) {
+        document.getElementById('profile-avatar-initial').textContent=v[0].toUpperCase();
+      }
+      save();}},
+  goal:{title:'Race Goal',render:p=>`
+    <div class="edit-field"><div class="edit-label">Select goal</div>
+    ${['5K','10K','Half','Marathon'].map(g=>`<button class="edit-option-block${p.goal===g?' selected':''}" onclick="pick('goal','${g}',this)">${g}</button>`).join('')}</div>`,
+    save:()=>{
+      document.getElementById('sr-goal').textContent=APP.profile.goal;
+      document.getElementById('profile-goal-el').textContent=`${APP.profile.level} · ${APP.profile.goal} Goal`;
+      rebuildPlan();save();}},
+  days:{title:'Run Days',render:p=>`
+    <div class="edit-field"><div class="edit-label">Select your run days</div>
+    <div class="edit-day-grid">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`
+      <button class="edit-day-btn${p.days.includes(d)?' selected':''}" onclick="toggleDay(this,'${d}')">${d}</button>`).join('')}</div></div>`,
+    save:()=>{
+      document.getElementById('sr-days').textContent=APP.profile.days.join(', ')||'None';
+      document.getElementById('plan-sub').textContent=`${APP.profile.level} ${APP.profile.goal} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
+      rebuildPlan();save();}},
+  level:{title:'Experience Level',render:p=>`
+    <div class="edit-field"><div class="edit-label">Your level — affects pace zones &amp; distances</div>
+    ${['Beginner','Intermediate','Advanced'].map(l=>`<button class="edit-option-block${p.level===l?' selected':''}" onclick="pick('level','${l}',this)">${l}</button>`).join('')}</div>`,
+    save:()=>{
+      document.getElementById('sr-level').textContent=APP.profile.level;
+      document.getElementById('profile-goal-el').textContent=`${APP.profile.level} · ${APP.profile.goal} Goal`;
+      rebuildPlan();save();}},
+  units:{title:'Distance Units',render:p=>`
+    <div class="edit-field"><div class="edit-label">Units — changes all distances in the app</div>
+    <div class="edit-options">${['km','miles'].map(u=>`<button class="edit-option${p.units===u?' selected':''}" onclick="pick('units','${u}',this)">${u}</button>`).join('')}</div></div>`,
+    save:()=>{document.getElementById('sr-units').textContent=APP.profile.units;applyUnitsEverywhere();save();}},
+  music:{title:'Music App',render:p=>`
+    <div class="edit-field"><div class="edit-label">Preferred music app</div>
+    ${['Spotify','Apple Music','YouTube Music','None'].map(m=>`<button class="edit-option-block${p.music===m?' selected':''}" onclick="pick('music','${m}',this)">${m}</button>`).join('')}</div>`,
+    save:()=>{document.getElementById('sr-music').textContent=APP.profile.music;save();}},
+};
+
+function openEdit(key) {
+  editKey=key; const cfg=EDITS[key]; if(!cfg)return;
+  document.getElementById('edit-content').innerHTML=`
+    <div class="edit-sheet-title">${cfg.title}</div>
+    ${cfg.render(APP.profile)}
+    <button class="edit-save-btn" onclick="saveEdit()">Save Changes</button>
+    <button class="edit-cancel-btn" onclick="closeEdit()">Cancel</button>`;
+  document.getElementById('edit-overlay').classList.add('visible');
+}
+function closeEdit(){document.getElementById('edit-overlay').classList.remove('visible');editKey=null;}
+function saveEdit(){if(!editKey)return;EDITS[editKey].save();closeEdit();}
+function pick(key,val,el){
+  APP.profile[key]=val;
+  el.closest('.edit-field').querySelectorAll('.edit-option,.edit-option-block').forEach(b=>b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function toggleDay(el,day){
+  el.classList.toggle('selected');
+  const idx=APP.profile.days.indexOf(day);
+  if(idx===-1)APP.profile.days.push(day);
+  else APP.profile.days.splice(idx,1);
+  const order=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  APP.profile.days=order.filter(d=>APP.profile.days.includes(d));
+}
+// ════════════════════════════════════════
+// AVATAR / PROFILE PICTURE
+// ════════════════════════════════════════
+function openAvatarPicker() {
+  // Show a small sheet: choose photo or remove
+  if (APP.profile.avatarDataUrl) {
+    showModal(
+      'Profile Photo',
+      'What would you like to do with your profile photo?',
+      'Choose New Photo',
+      () => document.getElementById('avatar-file-input').click()
+    );
+    // Override cancel to offer remove
+    document.getElementById('modal-cancel-btn').textContent = 'Remove Photo';
+    document.getElementById('modal-cancel-btn').onclick = () => {
+      removeAvatar();
+      closeModal();
+    };
+  } else {
+    document.getElementById('avatar-file-input').click();
+  }
+}
+
+function handleAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showModal('Invalid File', 'Please choose an image file (JPG, PNG, HEIC).', 'OK', null);
+    return;
+  }
+  // Max ~500KB stored — compress via canvas
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX = 300; // 300x300 is plenty for a circular avatar
+      const scale = Math.min(MAX / img.width, MAX / img.height, 1);
+      canvas.width  = img.width  * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      // Crop to square from centre
+      const size = Math.min(img.width, img.height);
+      const sx   = (img.width  - size) / 2;
+      const sy   = (img.height - size) / 2;
+      canvas.width = canvas.height = MAX;
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, MAX, MAX);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      APP.profile.avatarDataUrl = dataUrl;
+      applyAvatarToUI(dataUrl);
+      save();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  // Reset input so same file can be selected again
+  event.target.value = '';
+}
+
+function applyAvatarToUI(dataUrl) {
+  const imgEl     = document.getElementById('profile-avatar-img');
+  const initialEl = document.getElementById('profile-avatar-initial');
+  if (dataUrl) {
+    imgEl.src = dataUrl;
+    imgEl.style.display = 'block';
+    if (initialEl) initialEl.style.display = 'none';
+  } else {
+    imgEl.style.display = 'none';
+    if (initialEl) {
+      initialEl.style.display = '';
+      initialEl.textContent = (APP.profile.name || 'R')[0].toUpperCase();
+    }
+  }
+}
+
+function removeAvatar() {
+  APP.profile.avatarDataUrl = null;
+  applyAvatarToUI(null);
+  save();
+}
+
+function rebuildPlan(){
+  APP.plan=makePlan(APP.profile.goal,APP.profile.level,APP.profile.days);
+  renderHome(); renderPlan();
+}
+function applyUnitsEverywhere(){
+  document.getElementById('sr-units').textContent=APP.profile.units;
+  document.getElementById('home-km-lbl').textContent=unitLabel()+' total';
+  document.getElementById('log-km-lbl').textContent=unitLabel()+' total';
+  renderHome(); renderPlan(); updateLogScreen(); renderPaceGuide();
+}
+
+// ════════════════════════════════════════
+// SAFARI / HOME SCREEN GUIDE
+// ════════════════════════════════════════
+function showSafariBanner(){document.getElementById('safari-banner').style.display='block';}
+function hideSafariBanner(){document.getElementById('safari-banner').style.display='none';}
+
+// ════════════════════════════════════════
+// CLEANUP
+// ════════════════════════════════════════
+window.addEventListener('beforeunload',()=>{
+  if(APP.timer.interval)clearInterval(APP.timer.interval);
+  stopGPS();
+});
+</script>
+</body>
+</html>
