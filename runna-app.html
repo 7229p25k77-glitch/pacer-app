@@ -220,6 +220,14 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .modal-btn-warn{background:var(--warn);color:white;}
 .modal-btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
 
+/* END-RUN CHOICE SHEET */
+#endrun-overlay{display:none;position:fixed;inset:0;z-index:550;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#endrun-overlay.visible{display:flex;}
+
+/* LOG DELETE BUTTON */
+.log-del-btn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text2);font-size:20px;align-self:center;cursor:pointer;padding:10px 12px;line-height:1;flex-shrink:0;}
+.log-del-btn:active{color:var(--warn);background:var(--warn-dim);border-color:var(--warn);}
+
 #edit-overlay{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.8);align-items:flex-end;justify-content:center;}
 #edit-overlay.visible{display:flex;}
 .edit-sheet{background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);padding:24px 20px 40px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;}
@@ -487,6 +495,17 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
     <div class="modal-body" id="modal-body"></div>
     <button class="modal-btn modal-btn-warn" id="modal-confirm-btn" onclick="modalConfirm()">Confirm</button>
     <button class="modal-btn modal-btn-secondary" id="modal-cancel-btn" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- END-RUN CHOICE -->
+<div id="endrun-overlay" onclick="endRunKeepGoing()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">End your run?</div>
+    <div class="modal-body">Do you want to save your progress so far, or discard this run?</div>
+    <button class="modal-btn modal-btn-primary" onclick="endRunSave()">💾 Save &amp; Finish</button>
+    <button class="modal-btn modal-btn-warn" onclick="endRunDiscard()">🗑 Discard — don't save</button>
+    <button class="modal-btn modal-btn-secondary" onclick="endRunKeepGoing()">← Keep Running</button>
   </div>
 </div>
 
@@ -1666,16 +1685,27 @@ function stopRunCleanup() {
   t.running = false;
   t.paused  = false;
 }
+// When you tap the exit (✕ or ■) mid-run, offer a clear choice:
+// save your progress, discard the run, or keep going.
+let endRunPrevPaused = false;
 function promptStopRun() {
-  const t=APP.timer; const was=t.paused; t.paused=true;
-  document.getElementById('modal-cancel-btn').onclick=()=>{t.paused=was;closeModal();};
-  document.getElementById('modal-overlay').onclick=(e)=>{
-    if(e.target===document.getElementById('modal-overlay')){t.paused=was;closeModal();}
-  };
-  showModal('End this run?','Your progress will NOT be saved.','End Run',()=>{
-    stopRunCleanup();
-    document.getElementById('run-timer').classList.remove('visible');
-  });
+  const t = APP.timer;
+  endRunPrevPaused = t.paused;   // remember if they were already paused
+  t.paused = true;               // freeze the run while they decide
+  document.getElementById('endrun-overlay').classList.add('visible');
+}
+function endRunSave() {
+  document.getElementById('endrun-overlay').classList.remove('visible');
+  finishRun();                   // saves the run to the log + shows the celebration
+}
+function endRunDiscard() {
+  document.getElementById('endrun-overlay').classList.remove('visible');
+  stopRunCleanup();
+  document.getElementById('run-timer').classList.remove('visible');
+}
+function endRunKeepGoing() {
+  document.getElementById('endrun-overlay').classList.remove('visible');
+  APP.timer.paused = endRunPrevPaused;  // resume exactly as before
 }
 function finishRun() {
   const t = APP.timer; const cw = APP.currentWorkout;
@@ -1760,9 +1790,18 @@ function updateLogScreen() {
             <div><div class="log-stat-val">${l.paceSecPerKm>0?fmtPace(l.paceSecPerKm):'—'}</div><div class="log-stat-lbl">Pace</div></div>
           </div>
         </div>
+        <button class="log-del-btn" data-id="${l.id}" aria-label="Delete run">🗑</button>
         <div style="color:var(--text3);font-size:18px;align-self:center;">›</div>
       </div>
     </div>`).join('');
+  // Wire up the 🗑 delete buttons with real click listeners so the tap is
+  // reliable and never accidentally opens the run details.
+  entries.querySelectorAll('.log-del-btn').forEach(btn=>{
+    btn.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      confirmDeleteRun(parseInt(this.dataset.id, 10));
+    });
+  });
 }
 
 // Swipe to delete
@@ -1779,9 +1818,13 @@ function swipeEnd(e,id){
   const el=document.getElementById('entry-'+id);
   if(dx<-50){
     if(el)el.style.transform='translateX(-90px)';
-    showModal('Delete this run?','This run will be permanently removed from your log.','Delete',()=>deleteRun(id));
+    confirmDeleteRun(id);
   }else{if(el)el.style.transform='translateX(0)';}
   delete swipeState[id];
+}
+// Shared by both swipe-to-delete and the 🗑 button
+function confirmDeleteRun(id){
+  showModal('Delete this run?','This run will be permanently removed from your log.','Delete',()=>deleteRun(id));
 }
 function deleteRun(id){
   const log=APP.logs.find(l=>l.id===id);
@@ -1919,7 +1962,13 @@ function closeModal() {
   };
   document.getElementById('modal-cancel-btn').onclick=closeModal;
 }
-function modalConfirm(){closeModal();if(typeof modalCb==='function')modalCb();}
+function modalConfirm(){
+  // Grab the callback BEFORE closeModal() runs — closeModal sets modalCb to
+  // null, so we must capture it first or the confirmed action never fires.
+  const cb = modalCb;
+  closeModal();
+  if(typeof cb==='function') cb();
+}
 document.getElementById('modal-overlay').onclick=(e)=>{
   if(e.target===document.getElementById('modal-overlay'))closeModal();
 };
