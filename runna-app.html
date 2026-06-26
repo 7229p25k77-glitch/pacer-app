@@ -301,6 +301,25 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .sb-close{position:absolute;top:10px;right:14px;background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;}
 
 .info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
+
+/* PROFILE GATE — "Who's running?" picker */
+#profile-gate{display:none;position:fixed;inset:0;z-index:800;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;overflow-y:auto;}
+#profile-gate.visible{display:flex;}
+.gate-close{position:absolute;top:18px;right:20px;background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;}
+.gate-logo{font-size:46px;margin-bottom:10px;}
+.gate-title{font-size:26px;font-weight:800;letter-spacing:-0.5px;text-align:center;}
+.gate-sub{font-size:14px;color:var(--text2);margin:6px 0 28px;text-align:center;}
+.gate-list{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:420px;width:100%;margin-bottom:18px;}
+.gate-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 10px;width:108px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;color:var(--text);}
+.gate-card:active{background:var(--surface2);border-color:var(--accent);}
+.gate-av{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg);overflow:hidden;flex-shrink:0;}
+.gate-av img{width:100%;height:100%;object-fit:cover;}
+.gate-name{font-size:15px;font-weight:700;text-align:center;word-break:break-word;line-height:1.2;}
+.gate-add{background:var(--surface2);border:1px dashed var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 22px;font-size:15px;font-weight:700;cursor:pointer;}
+
+/* GPS PERMISSION PROMPT */
+#gps-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#gps-overlay.visible{display:flex;}
 </style>
 </head>
 <body>
@@ -415,6 +434,8 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
     <div class="settings-group">
       <div class="settings-label">App</div>
       <div class="settings-card">
+        <div class="settings-row" onclick="showProfileGate()"><span class="sr-icon">🔄</span><span class="sr-label">Switch profile</span><span class="sr-value" id="sr-active-name">Runner</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="toggleGpsPref()"><span class="sr-icon">📍</span><span class="sr-label">Location (GPS)</span><span class="sr-value" id="sr-gps">On</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('music')"><span class="sr-icon">🎵</span><span class="sr-label">Music app</span><span class="sr-value" id="sr-music">Spotify</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="showSafariBanner()"><span class="sr-icon">📱</span><span class="sr-label">Add to Home Screen</span><span class="sr-value">Guide</span><span class="sr-arrow">›</span></div>
       </div>
@@ -445,7 +466,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="coach-tip-text" id="wo-tip"></div>
     </div>
     <div class="start-btn-wrap">
-      <button class="start-btn" id="wo-start-btn" onclick="startRun()">Start Run →</button>
+      <button class="start-btn" id="wo-start-btn" onclick="beginRunFlow()">Start Run →</button>
     </div>
   </div>
 </div>
@@ -487,6 +508,31 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   </div>
   <button class="finish-btn" onclick="finishRun()">Finish &amp; Save Run</button>
   <button class="finish-btn" id="mute-btn" onclick="toggleMute()" style="margin-top:8px;font-size:12px;padding:8px 24px;">🔊 Voice On</button>
+</div>
+
+<!-- PROFILE GATE -->
+<div id="profile-gate">
+  <button class="gate-close" id="gate-close" onclick="hideProfileGate()">✕</button>
+  <div class="gate-logo">🏃</div>
+  <div class="gate-title" id="gate-title">Who's running?</div>
+  <div class="gate-sub" id="gate-sub">Tap your profile to continue</div>
+  <div class="gate-list" id="gate-list"></div>
+  <div id="gate-create" style="display:none;width:100%;max-width:320px;">
+    <input class="edit-input" id="gate-name-input" type="text" maxlength="20" placeholder="Enter a name" style="text-align:center;margin-bottom:12px;">
+    <button class="edit-save-btn" onclick="submitNewProfile()">Create Profile</button>
+    <button class="edit-cancel-btn" id="gate-create-cancel" onclick="renderProfileGate()">Cancel</button>
+  </div>
+  <button class="gate-add" id="gate-add-btn" onclick="showCreateProfile(false)">+ Add Profile</button>
+</div>
+
+<!-- GPS PERMISSION PROMPT -->
+<div id="gps-overlay">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">📍 Track your runs with GPS?</div>
+    <div class="modal-body">Pacer can use your phone's location to measure how far you run and draw your route on a map. Your location stays on your device and is never shared — and you can turn it off anytime in Profile.</div>
+    <button class="modal-btn modal-btn-primary" onclick="gpsAllow()">Allow GPS</button>
+    <button class="modal-btn modal-btn-secondary" onclick="gpsSkip()">Not now</button>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -560,11 +606,26 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 
 <script>
 // ════════════════════════════════════════
-// PERSISTENCE — localStorage
+// PERSISTENCE & PROFILES — localStorage
+// Each profile gets its own save slot, so several people can share one
+// device, tap between profiles, and keep their own runs & settings.
+// (Data stays on this device — it does not sync across devices.)
 // ════════════════════════════════════════
+const REG_KEY      = 'pacer_registry';   // the list of profiles + which one is active
+const DATA_PREFIX  = 'pacer_data_';      // each profile's data lives at DATA_PREFIX + id
+const MAX_PROFILES = 5;
+const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', music:'Spotify', avatarDataUrl:null };
+let REG = { activeId:null, profiles:[] };
+
+function saveRegistry(){ try { localStorage.setItem(REG_KEY, JSON.stringify(REG)); } catch(e){} }
+function newProfileId(){ return 'p_' + Date.now() + '_' + Math.floor(Math.random()*1000); }
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// Save / load the ACTIVE profile's data into its own slot
 function save() {
+  if (!REG.activeId) return;
   try {
-    localStorage.setItem('pacer_v4', JSON.stringify({
+    localStorage.setItem(DATA_PREFIX + REG.activeId, JSON.stringify({
       profile: APP.profile,
       logs: APP.logs,
       completedRuns: APP.completedRuns,
@@ -572,8 +633,9 @@ function save() {
   } catch(e) {}
 }
 function load() {
+  if (!REG.activeId) return;
   try {
-    const d = localStorage.getItem('pacer_v4');
+    const d = localStorage.getItem(DATA_PREFIX + REG.activeId);
     if (d) {
       const p = JSON.parse(d);
       if (p.profile) APP.profile = {...APP.profile, ...p.profile};
@@ -581,6 +643,147 @@ function load() {
       if (p.completedRuns) APP.completedRuns = p.completedRuns;
     }
   } catch(e) {}
+}
+
+// Set up the profile registry on startup (and migrate an older single-profile save)
+function initProfiles(){
+  REG = { activeId:null, profiles:[] };
+  let ok = false;
+  try {
+    const r = localStorage.getItem(REG_KEY);
+    if (r){ const parsed = JSON.parse(r); if (parsed && Array.isArray(parsed.profiles)){ REG = parsed; ok = true; } }
+  } catch(e){}
+  if (ok && REG.profiles.length){
+    if (!REG.profiles.find(p=>p.id===REG.activeId)) REG.activeId = REG.profiles[0].id;
+    return;
+  }
+  // Migrate the old single-profile save (pacer_v4) into profile #1, if present
+  const old = localStorage.getItem('pacer_v4');
+  if (old){
+    const id = newProfileId();
+    let name = 'Runner';
+    try { const p = JSON.parse(old); if (p.profile && p.profile.name) name = p.profile.name; } catch(e){}
+    REG = { activeId:id, profiles:[{id, name}] };
+    try { localStorage.setItem(DATA_PREFIX + id, old); } catch(e){}
+    saveRegistry();
+  }
+}
+
+function resetAppData(){
+  APP.profile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
+  APP.logs = [];
+  APP.completedRuns = {};
+}
+
+// Load the active profile into the app and render every screen
+function bootProfile(){
+  resetAppData();
+  load();
+  APP.plan = makePlan(APP.profile.goal, APP.profile.level, APP.profile.days);
+  setGreeting(); setTodayLabel();
+  applyProfileToUI();
+  applyAvatarToUI(APP.profile.avatarDataUrl || null);
+  renderHome(); renderPlan(); updateLogScreen();
+  applyUnitsEverywhere();
+  showScreen('home-screen');
+}
+
+function activateProfile(id){
+  if (id !== REG.activeId){
+    REG.activeId = id;
+    saveRegistry();
+    bootProfile();
+  }
+  hideProfileGate();
+}
+
+function createProfile(name){
+  if (REG.profiles.length >= MAX_PROFILES) return;
+  const id = newProfileId();
+  REG.profiles.push({ id, name });
+  REG.activeId = id;
+  saveRegistry();
+  resetAppData();
+  APP.profile.name = name;
+  save();
+  bootProfile();
+  hideProfileGate();
+}
+
+function syncRegistryName(){
+  const reg = REG.profiles.find(p=>p.id===REG.activeId);
+  if (reg){ reg.name = APP.profile.name; saveRegistry(); }
+}
+
+function getProfileMeta(id){
+  const reg = REG.profiles.find(p=>p.id===id);
+  let name = reg ? reg.name : 'Runner';
+  let avatar = null;
+  try {
+    const d = JSON.parse(localStorage.getItem(DATA_PREFIX + id) || '{}');
+    if (d.profile){
+      if (d.profile.name) name = d.profile.name;
+      if (d.profile.avatarDataUrl) avatar = d.profile.avatarDataUrl;
+    }
+  } catch(e){}
+  return { name, avatar };
+}
+
+// ── Profile gate: the "Who's running?" picker ──
+function showProfileGate(){
+  document.getElementById('profile-gate').classList.add('visible');
+  renderProfileGate();
+}
+function hideProfileGate(){
+  if (!REG.activeId) return; // must pick/create a profile before the app opens
+  document.getElementById('profile-gate').classList.remove('visible');
+}
+function renderProfileGate(){
+  const list   = document.getElementById('gate-list');
+  const add    = document.getElementById('gate-add-btn');
+  const create = document.getElementById('gate-create');
+  const close  = document.getElementById('gate-close');
+  create.style.display = 'none';
+  list.style.display = '';
+  close.style.display = REG.activeId ? '' : 'none';
+  if (!REG.profiles.length){
+    document.getElementById('gate-title').textContent = 'Welcome to Pacer';
+    document.getElementById('gate-sub').textContent = 'Create a profile to get started';
+    showCreateProfile(true);
+    return;
+  }
+  document.getElementById('gate-title').textContent = "Who's running?";
+  document.getElementById('gate-sub').textContent = 'Tap your profile to continue';
+  let html = '';
+  REG.profiles.forEach(p=>{
+    const meta = getProfileMeta(p.id);
+    const initial = ((meta.name||'R').trim().charAt(0) || 'R').toUpperCase();
+    const inner = meta.avatar ? `<img src="${meta.avatar}" alt="">` : initial;
+    html += `<button class="gate-card" onclick="activateProfile('${p.id}')">
+        <div class="gate-av">${inner}</div>
+        <div class="gate-name">${escapeHtml(meta.name||'Runner')}</div>
+      </button>`;
+  });
+  list.innerHTML = html;
+  add.style.display = REG.profiles.length >= MAX_PROFILES ? 'none' : '';
+}
+function showCreateProfile(firstTime){
+  document.getElementById('gate-list').style.display = 'none';
+  document.getElementById('gate-add-btn').style.display = 'none';
+  document.getElementById('gate-create').style.display = '';
+  const cancel = document.getElementById('gate-create-cancel');
+  cancel.style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
+  if (!firstTime){
+    document.getElementById('gate-title').textContent = 'New Profile';
+    document.getElementById('gate-sub').textContent = `Add a runner (${REG.profiles.length}/${MAX_PROFILES})`;
+  }
+  const inp = document.getElementById('gate-name-input');
+  inp.value = '';
+  setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 50);
+}
+function submitNewProfile(){
+  const name = (document.getElementById('gate-name-input').value||'').trim() || 'Runner';
+  createProfile(name);
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1031,13 +1234,13 @@ function getPaceZones() {
 // INIT
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  load();
-  APP.plan = makePlan(APP.profile.goal, APP.profile.level, APP.profile.days);
-  setGreeting(); setTodayLabel();
-  applyProfileToUI();
-  applyAvatarToUI(APP.profile.avatarDataUrl || null);
-  renderHome(); renderPlan(); updateLogScreen();
-  applyUnitsEverywhere();
+  initProfiles();
+  if (!REG.activeId) {
+    showProfileGate();                                // brand-new device → create first profile
+  } else {
+    bootProfile();                                    // load the active profile
+    if (REG.profiles.length > 1) showProfileGate();   // more than one → let them choose who's running
+  }
 });
 
 // Apply all saved profile values to every UI element on startup
@@ -1067,6 +1270,11 @@ function applyProfileToUI() {
   // Music
   const srMusic = document.getElementById('sr-music');
   if (srMusic) srMusic.textContent = p.music || 'Spotify';
+  // Active profile name (Switch profile row)
+  const srActive = document.getElementById('sr-active-name');
+  if (srActive) srActive.textContent = p.name || 'Runner';
+  // Location (GPS) On/Off row
+  updateGpsSettingRow();
 }
 function setGreeting() {
   const h = new Date().getHours();
@@ -1374,9 +1582,31 @@ function isRunLocked(wi, ri) {
 // ════════════════════════════════════════
 // GPS
 // ════════════════════════════════════════
+// First-run prompt asking the runner to allow location, plus an On/Off
+// preference (stored per device) so they can change their mind in Profile.
+function getGpsPref(){ try { return localStorage.getItem('pacer_gps_enabled'); } catch(e){ return null; } }
+function setGpsPref(v){ try { localStorage.setItem('pacer_gps_enabled', v); } catch(e){} updateGpsSettingRow(); }
+function updateGpsSettingRow(){ const el=document.getElementById('sr-gps'); if(el) el.textContent = getGpsPref()==='no' ? 'Off' : 'On'; }
+function toggleGpsPref(){ setGpsPref(getGpsPref()==='no' ? 'yes' : 'no'); }
+
+// Called by the "Start Run" button — show the GPS prompt the first time only
+function beginRunFlow(){
+  if (!APP.currentWorkout) return;
+  if (getGpsPref() === null) showGpsPrompt();   // never asked → explain & ask
+  else startRun();
+}
+function showGpsPrompt(){ document.getElementById('gps-overlay').classList.add('visible'); }
+function hideGpsPrompt(){ document.getElementById('gps-overlay').classList.remove('visible'); }
+function gpsAllow(){ setGpsPref('yes'); hideGpsPrompt(); startRun(); }
+function gpsSkip(){ setGpsPref('no'); hideGpsPrompt(); startRun(); }
+
 function startGPS() {
   const t = APP.timer;
   t.gpsPositions = [];
+  if (getGpsPref() === 'no') {
+    document.getElementById('timer-gps').textContent = '📍 GPS off — distance estimated';
+    return;
+  }
   if ('geolocation' in navigator) {
     const opts = {enableHighAccuracy:true, maximumAge:0, timeout:10000};
     t.watchId = navigator.geolocation.watchPosition(pos => {
@@ -1990,7 +2220,8 @@ const EDITS = {
       if (!APP.profile.avatarDataUrl) {
         document.getElementById('profile-avatar-initial').textContent=v[0].toUpperCase();
       }
-      save();}},
+      save(); syncRegistryName();
+      var sa=document.getElementById('sr-active-name'); if(sa) sa.textContent=v;}},
   goal:{title:'Race Goal',render:p=>`
     <div class="edit-field"><div class="edit-label">Select goal</div>
     ${['5K','10K','Half','Marathon'].map(g=>`<button class="edit-option-block${p.goal===g?' selected':''}" onclick="pick('goal','${g}',this)">${g}</button>`).join('')}</div>`,
