@@ -317,9 +317,11 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .gate-name{font-size:15px;font-weight:700;text-align:center;word-break:break-word;line-height:1.2;}
 .gate-add{background:var(--surface2);border:1px dashed var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 22px;font-size:15px;font-weight:700;cursor:pointer;}
 
-/* GPS PERMISSION PROMPT */
-#gps-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
-#gps-overlay.visible{display:flex;}
+/* SETUP WIZARD (inside the profile gate) */
+.wiz-body{margin-bottom:16px;}
+.wiz-q{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--text);}
+.wiz-help{font-size:13px;color:var(--text2);line-height:1.5;text-align:center;margin-bottom:16px;}
+.wiz-opts{display:flex;flex-direction:column;gap:0;}
 </style>
 </head>
 <body>
@@ -466,7 +468,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="coach-tip-text" id="wo-tip"></div>
     </div>
     <div class="start-btn-wrap">
-      <button class="start-btn" id="wo-start-btn" onclick="beginRunFlow()">Start Run →</button>
+      <button class="start-btn" id="wo-start-btn" onclick="startRun()">Start Run →</button>
     </div>
   </div>
 </div>
@@ -517,22 +519,8 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   <div class="gate-title" id="gate-title">Who's running?</div>
   <div class="gate-sub" id="gate-sub">Tap your profile to continue</div>
   <div class="gate-list" id="gate-list"></div>
-  <div id="gate-create" style="display:none;width:100%;max-width:320px;">
-    <input class="edit-input" id="gate-name-input" type="text" maxlength="20" placeholder="Enter a name" style="text-align:center;margin-bottom:12px;">
-    <button class="edit-save-btn" onclick="submitNewProfile()">Create Profile</button>
-    <button class="edit-cancel-btn" id="gate-create-cancel" onclick="renderProfileGate()">Cancel</button>
-  </div>
+  <div id="gate-wizard" style="display:none;width:100%;max-width:340px;"></div>
   <button class="gate-add" id="gate-add-btn" onclick="showCreateProfile(false)">+ Add Profile</button>
-</div>
-
-<!-- GPS PERMISSION PROMPT -->
-<div id="gps-overlay">
-  <div class="modal-sheet" onclick="event.stopPropagation()">
-    <div class="modal-title">📍 Track your runs with GPS?</div>
-    <div class="modal-body">Pacer can use your phone's location to measure how far you run and draw your route on a map. Your location stays on your device and is never shared — and you can turn it off anytime in Profile.</div>
-    <button class="modal-btn modal-btn-primary" onclick="gpsAllow()">Allow GPS</button>
-    <button class="modal-btn modal-btn-secondary" onclick="gpsSkip()">Not now</button>
-  </div>
 </div>
 
 <!-- MODAL -->
@@ -697,19 +685,6 @@ function activateProfile(id){
   hideProfileGate();
 }
 
-function createProfile(name){
-  if (REG.profiles.length >= MAX_PROFILES) return;
-  const id = newProfileId();
-  REG.profiles.push({ id, name });
-  REG.activeId = id;
-  saveRegistry();
-  resetAppData();
-  APP.profile.name = name;
-  save();
-  bootProfile();
-  hideProfileGate();
-}
-
 function syncRegistryName(){
   const reg = REG.profiles.find(p=>p.id===REG.activeId);
   if (reg){ reg.name = APP.profile.name; saveRegistry(); }
@@ -741,9 +716,9 @@ function hideProfileGate(){
 function renderProfileGate(){
   const list   = document.getElementById('gate-list');
   const add    = document.getElementById('gate-add-btn');
-  const create = document.getElementById('gate-create');
+  const wiz    = document.getElementById('gate-wizard');
   const close  = document.getElementById('gate-close');
-  create.style.display = 'none';
+  wiz.style.display = 'none';
   list.style.display = '';
   close.style.display = REG.activeId ? '' : 'none';
   if (!REG.profiles.length){
@@ -767,23 +742,101 @@ function renderProfileGate(){
   list.innerHTML = html;
   add.style.display = REG.profiles.length >= MAX_PROFILES ? 'none' : '';
 }
-function showCreateProfile(firstTime){
+// ── Setup wizard: new profiles pick their settings (including GPS) up front ──
+let WIZ = null;
+const WIZ_STEPS = ['name','goal','level','days','units','gps'];
+
+function showCreateProfile(firstTime){ startWizard(firstTime); }
+
+function startWizard(firstTime){
+  WIZ = { step:0, firstTime:!!firstTime,
+    data:{ name:'', goal:'5K', level:'Beginner', days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
   document.getElementById('gate-list').style.display = 'none';
   document.getElementById('gate-add-btn').style.display = 'none';
-  document.getElementById('gate-create').style.display = '';
-  const cancel = document.getElementById('gate-create-cancel');
-  cancel.style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
-  if (!firstTime){
-    document.getElementById('gate-title').textContent = 'New Profile';
-    document.getElementById('gate-sub').textContent = `Add a runner (${REG.profiles.length}/${MAX_PROFILES})`;
-  }
-  const inp = document.getElementById('gate-name-input');
-  inp.value = '';
-  setTimeout(()=>{ try{ inp.focus(); }catch(e){} }, 50);
+  document.getElementById('gate-close').style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
+  document.getElementById('gate-wizard').style.display = '';
+  renderWizard();
 }
-function submitNewProfile(){
-  const name = (document.getElementById('gate-name-input').value||'').trim() || 'Runner';
-  createProfile(name);
+
+function renderWizard(){
+  const d = WIZ.data;
+  const step = WIZ_STEPS[WIZ.step];
+  const total = WIZ_STEPS.length;
+  document.getElementById('gate-title').textContent = (WIZ.firstTime && WIZ.step===0) ? 'Welcome to Pacer' : 'Set up your profile';
+  document.getElementById('gate-sub').textContent = `Step ${WIZ.step+1} of ${total}`;
+
+  let body = '';
+  if (step === 'name'){
+    body = `<div class="wiz-q">What's your name?</div>
+      <input class="edit-input" id="wiz-name" type="text" maxlength="20" placeholder="Enter a name" value="${escapeHtml(d.name)}" style="text-align:center;">`;
+  } else if (step === 'goal'){
+    body = `<div class="wiz-q">What's your goal?</div>` + optBlocks('goal', [['5K','5K'],['10K','10K'],['Half','Half Marathon'],['Marathon','Marathon']], d.goal);
+  } else if (step === 'level'){
+    body = `<div class="wiz-q">Your experience level?</div>` + optBlocks('level', [['Beginner','Beginner'],['Intermediate','Intermediate'],['Advanced','Advanced']], d.level);
+  } else if (step === 'days'){
+    body = `<div class="wiz-q">Which days will you run?</div><div class="edit-day-grid">` +
+      ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<button class="edit-day-btn${d.days.includes(day)?' selected':''}" onclick="wizToggleDay('${day}')">${day}</button>`).join('') + `</div>`;
+  } else if (step === 'units'){
+    body = `<div class="wiz-q">Distance units?</div><div class="edit-options" style="justify-content:center;">` +
+      ['km','miles'].map(u=>`<button class="edit-option${d.units===u?' selected':''}" onclick="wizPick('units','${u}')">${u}</button>`).join('') + `</div>`;
+  } else if (step === 'gps'){
+    body = `<div class="wiz-q">📍 Allow location (GPS)?</div>
+      <div class="wiz-help">Pacer can use your phone's location to track real distance and pace, and draw your route on a map. It stays on your device and is never shared — you can change this later in Profile.</div>` +
+      optBlocks('gps', [['yes','Allow GPS'],['no','Not now']], d.gps);
+  }
+
+  const isLast = WIZ.step === total - 1;
+  let backBtn = '';
+  if (WIZ.step > 0) backBtn = `<button class="edit-cancel-btn" onclick="wizBack()">← Back</button>`;
+  else if (!WIZ.firstTime && REG.profiles.length) backBtn = `<button class="edit-cancel-btn" onclick="renderProfileGate()">Cancel</button>`;
+
+  document.getElementById('gate-wizard').innerHTML =
+    `<div class="wiz-body">${body}</div>
+     <button class="edit-save-btn" onclick="wizNext()">${isLast ? 'Create Profile' : 'Next →'}</button>
+     ${backBtn}`;
+
+  if (step === 'name'){ const inp=document.getElementById('wiz-name'); if(inp) setTimeout(()=>{try{inp.focus();}catch(e){}},50); }
+}
+
+function optBlocks(key, pairs, current){
+  return `<div class="wiz-opts">` + pairs.map(p=>`<button class="edit-option-block${current===p[0]?' selected':''}" onclick="wizPick('${key}','${p[0]}')">${p[1]}</button>`).join('') + `</div>`;
+}
+function wizPick(key, val){ WIZ.data[key] = val; renderWizard(); }
+function wizToggleDay(day){
+  const days = WIZ.data.days;
+  const i = days.indexOf(day);
+  if (i === -1) days.push(day); else days.splice(i,1);
+  const order = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  WIZ.data.days = order.filter(x=>days.includes(x));
+  renderWizard();
+}
+function saveWizName(){ const inp=document.getElementById('wiz-name'); if(inp) WIZ.data.name = inp.value.trim(); }
+function wizBack(){ if (WIZ.step > 0){ saveWizName(); WIZ.step--; renderWizard(); } }
+function wizNext(){
+  saveWizName();
+  if (WIZ.step < WIZ_STEPS.length - 1){ WIZ.step++; renderWizard(); }
+  else finishWizard();
+}
+function finishWizard(){
+  const d = WIZ.data;
+  createProfileWithSettings(d.name || 'Runner', d);
+}
+function createProfileWithSettings(name, d){
+  if (REG.profiles.length >= MAX_PROFILES) return;
+  const id = newProfileId();
+  REG.profiles.push({ id, name });
+  REG.activeId = id;
+  saveRegistry();
+  resetAppData();
+  APP.profile.name  = name;
+  APP.profile.goal  = d.goal;
+  APP.profile.level = d.level;
+  APP.profile.days  = d.days.length ? d.days : ['Wed','Fri','Sun'];
+  APP.profile.units = d.units;
+  save();
+  setGpsPref(d.gps);   // store the GPS choice made in the wizard
+  bootProfile();
+  hideProfileGate();
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -1588,17 +1641,6 @@ function getGpsPref(){ try { return localStorage.getItem('pacer_gps_enabled'); }
 function setGpsPref(v){ try { localStorage.setItem('pacer_gps_enabled', v); } catch(e){} updateGpsSettingRow(); }
 function updateGpsSettingRow(){ const el=document.getElementById('sr-gps'); if(el) el.textContent = getGpsPref()==='no' ? 'Off' : 'On'; }
 function toggleGpsPref(){ setGpsPref(getGpsPref()==='no' ? 'yes' : 'no'); }
-
-// Called by the "Start Run" button — show the GPS prompt the first time only
-function beginRunFlow(){
-  if (!APP.currentWorkout) return;
-  if (getGpsPref() === null) showGpsPrompt();   // never asked → explain & ask
-  else startRun();
-}
-function showGpsPrompt(){ document.getElementById('gps-overlay').classList.add('visible'); }
-function hideGpsPrompt(){ document.getElementById('gps-overlay').classList.remove('visible'); }
-function gpsAllow(){ setGpsPref('yes'); hideGpsPrompt(); startRun(); }
-function gpsSkip(){ setGpsPref('no'); hideGpsPrompt(); startRun(); }
 
 function startGPS() {
   const t = APP.timer;
