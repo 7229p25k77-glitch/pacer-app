@@ -210,7 +210,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .sr-value{font-size:14px;color:var(--text2);}
 .sr-arrow{color:var(--text3);margin-left:4px;font-size:16px;}
 
-#modal-overlay{display:none;position:fixed;inset:0;z-index:500;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#modal-overlay{display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
 #modal-overlay.visible{display:flex;}
 .modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);padding:24px 20px 36px;width:100%;max-width:480px;}
 .modal-title{font-size:18px;font-weight:800;margin-bottom:8px;}
@@ -310,8 +310,10 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .gate-title{font-size:26px;font-weight:800;letter-spacing:-0.5px;text-align:center;}
 .gate-sub{font-size:14px;color:var(--text2);margin:6px 0 28px;text-align:center;}
 .gate-list{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;max-width:420px;width:100%;margin-bottom:18px;}
-.gate-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 10px;width:108px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;color:var(--text);}
+.gate-card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 10px;width:108px;display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;color:var(--text);}
 .gate-card:active{background:var(--surface2);border-color:var(--accent);}
+.gate-card-x{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
+.gate-card-x:active{background:var(--warn);color:#fff;border-color:var(--warn);}
 .gate-av{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg);overflow:hidden;flex-shrink:0;}
 .gate-av img{width:100%;height:100%;object-fit:cover;}
 .gate-name{font-size:15px;font-weight:700;text-align:center;word-break:break-word;line-height:1.2;}
@@ -719,6 +721,25 @@ function getProfileMeta(id){
   return { name, avatar };
 }
 
+// Remove a profile (and all its data) from this device, with a confirm first
+function confirmDeleteProfile(id){
+  const meta = getProfileMeta(id);
+  showModal('Remove this profile?', `"${meta.name}" and all of its runs will be permanently deleted from this device. This can't be undone.`, 'Remove', function(){ deleteProfile(id); });
+}
+function deleteProfile(id){
+  REG.profiles = REG.profiles.filter(p=>p.id!==id);
+  try { localStorage.removeItem(DATA_PREFIX + id); } catch(e){}
+  if (REG.activeId === id){
+    // we removed the profile that's currently loaded → switch to a remaining one
+    REG.activeId = REG.profiles.length ? REG.profiles[0].id : null;
+    saveRegistry();
+    if (REG.activeId) bootProfile();
+  } else {
+    saveRegistry();
+  }
+  renderProfileGate();   // refresh the picker (shows the setup wizard if none are left)
+}
+
 // ── Profile gate: the "Who's running?" picker ──
 function showProfileGate(){
   document.getElementById('profile-gate').classList.add('visible');
@@ -749,12 +770,21 @@ function renderProfileGate(){
     const meta = getProfileMeta(p.id);
     const initial = ((meta.name||'R').trim().charAt(0) || 'R').toUpperCase();
     const inner = meta.avatar ? `<img src="${meta.avatar}" alt="">` : initial;
-    html += `<button class="gate-card" onclick="activateProfile('${p.id}')">
+    html += `<div class="gate-card" data-id="${p.id}">
+        <button class="gate-card-x" data-id="${p.id}" aria-label="Remove profile">✕</button>
         <div class="gate-av">${inner}</div>
         <div class="gate-name">${escapeHtml(meta.name||'Runner')}</div>
-      </button>`;
+      </div>`;
   });
   list.innerHTML = html;
+  // Tap the card to switch profiles; tap its ✕ to remove it (one listener handles both reliably)
+  list.querySelectorAll('.gate-card').forEach(card=>{
+    const id = card.dataset.id;
+    card.addEventListener('click', function(ev){
+      if (ev.target.closest('.gate-card-x')) confirmDeleteProfile(id);
+      else activateProfile(id);
+    });
+  });
   add.style.display = REG.profiles.length >= MAX_PROFILES ? 'none' : '';
 }
 // ── Setup wizard: new profiles pick their settings (including GPS) up front ──
