@@ -322,6 +322,10 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .wiz-q{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--text);}
 .wiz-help{font-size:13px;color:var(--text2);line-height:1.5;text-align:center;margin-bottom:16px;}
 .wiz-opts{display:flex;flex-direction:column;gap:0;}
+
+/* GPS INFO + TOGGLE SHEET */
+#gpsinfo-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#gpsinfo-overlay.visible{display:flex;}
 </style>
 </head>
 <body>
@@ -437,7 +441,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="settings-label">App</div>
       <div class="settings-card">
         <div class="settings-row" onclick="showProfileGate()"><span class="sr-icon">🔄</span><span class="sr-label">Switch profile</span><span class="sr-value" id="sr-active-name">Runner</span><span class="sr-arrow">›</span></div>
-        <div class="settings-row" onclick="toggleGpsPref()"><span class="sr-icon">📍</span><span class="sr-label">Location (GPS)</span><span class="sr-value" id="sr-gps">On</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="showGpsInfo()"><span class="sr-icon">📍</span><span class="sr-label">Location (GPS)</span><span class="sr-value" id="sr-gps">On</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('music')"><span class="sr-icon">🎵</span><span class="sr-label">Music app</span><span class="sr-value" id="sr-music">Spotify</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="showSafariBanner()"><span class="sr-icon">📱</span><span class="sr-label">Add to Home Screen</span><span class="sr-value">Guide</span><span class="sr-arrow">›</span></div>
       </div>
@@ -521,6 +525,17 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   <div class="gate-list" id="gate-list"></div>
   <div id="gate-wizard" style="display:none;width:100%;max-width:340px;"></div>
   <button class="gate-add" id="gate-add-btn" onclick="showCreateProfile(false)">+ Add Profile</button>
+</div>
+
+<!-- GPS INFO + TOGGLE -->
+<div id="gpsinfo-overlay" onclick="closeGpsInfo()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">📍 Location (GPS)</div>
+    <div class="modal-body">Pacer uses your phone's location <b>only while you're on a run</b> — to measure your real distance, work out your pace, and draw your route on a map.<br><br>Your location <b>stays on this device</b>. It is never uploaded or shared with anyone.</div>
+    <div id="gpsinfo-status" style="font-size:13px;font-weight:700;text-align:center;margin-bottom:16px;color:var(--accent);">Currently: On</div>
+    <button class="modal-btn modal-btn-warn" id="gpsinfo-toggle-btn" onclick="gpsInfoToggle()">Turn GPS Off</button>
+    <button class="modal-btn modal-btn-secondary" onclick="closeGpsInfo()">Close</button>
+  </div>
 </div>
 
 <!-- MODAL -->
@@ -1641,6 +1656,19 @@ function getGpsPref(){ try { return localStorage.getItem('pacer_gps_enabled'); }
 function setGpsPref(v){ try { localStorage.setItem('pacer_gps_enabled', v); } catch(e){} updateGpsSettingRow(); }
 function updateGpsSettingRow(){ const el=document.getElementById('sr-gps'); if(el) el.textContent = getGpsPref()==='no' ? 'Off' : 'On'; }
 function toggleGpsPref(){ setGpsPref(getGpsPref()==='no' ? 'yes' : 'no'); }
+
+// Tapping the Location row opens an info sheet explaining how GPS data is
+// used, with the On/Off switch at the bottom.
+function showGpsInfo(){ updateGpsInfoSheet(); document.getElementById('gpsinfo-overlay').classList.add('visible'); }
+function closeGpsInfo(){ document.getElementById('gpsinfo-overlay').classList.remove('visible'); }
+function updateGpsInfoSheet(){
+  const on = getGpsPref() !== 'no';
+  const status = document.getElementById('gpsinfo-status');
+  const btn = document.getElementById('gpsinfo-toggle-btn');
+  if (status){ status.textContent = on ? 'Currently: On' : 'Currently: Off'; status.style.color = on ? 'var(--accent)' : 'var(--text2)'; }
+  if (btn){ btn.textContent = on ? 'Turn GPS Off' : 'Turn GPS On'; btn.className = 'modal-btn ' + (on ? 'modal-btn-warn' : 'modal-btn-primary'); }
+}
+function gpsInfoToggle(){ toggleGpsPref(); updateGpsInfoSheet(); }
 
 function startGPS() {
   const t = APP.timer;
