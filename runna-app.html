@@ -16,9 +16,24 @@
   --accent2:#7B6FFF;--accent2-dim:rgba(123,111,255,0.12);
   --warn:#FF6B6B;--warn-dim:rgba(255,107,107,0.12);
   --text:#F0F0F8;--text2:#8888AA;--text3:#55556A;
+  --ink:#0A0A0F; /* dark text that sits on top of accent-colored buttons — same in both themes */
   --nav-h:60px;--radius:16px;--radius-sm:10px;
   --safe-top:calc(env(safe-area-inset-top, 0px) + 5px); /* clears the iPhone Dynamic Island / notch + 5px breathing room */
 }
+
+/* LIGHT MODE — overrides the palette; buttons keep dark --ink text */
+html.light{
+  --bg:#F2F3F7;--surface:#FFFFFF;--surface2:#E9EBF1;--border:#DCDFE7;
+  --accent:#009E74;--accent-dim:rgba(0,158,116,0.14);
+  --accent2:#6A5CFF;--accent2-dim:rgba(106,92,255,0.12);
+  --warn:#D94840;--warn-dim:rgba(217,72,64,0.12);
+  --text:#16161D;--text2:#5C5C70;--text3:#9B9BAD;
+}
+html.light .today-hero{background:linear-gradient(135deg,#E2F6EE 0%,#E7EEF9 100%);border-color:#CBE8DB;}
+html.light .workout-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--bg) 100%);}
+html.light .detail-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--bg) 60%);}
+html.light #nav{background:rgba(242,243,247,0.96);}
+html.light #safari-banner{background:#E2F6EE;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   font-family:-apple-system,'SF Pro Display',system-ui,sans-serif;
@@ -55,7 +70,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .trm-item{display:flex;flex-direction:column;gap:2px;}
 .trm-val{font-size:20px;font-weight:800;color:var(--accent);}
 .trm-lbl{font-size:11px;color:var(--text2);}
-.today-cta{margin-top:16px;background:var(--accent);color:var(--bg);font-size:15px;font-weight:800;
+.today-cta{margin-top:16px;background:var(--accent);color:var(--ink);font-size:15px;font-weight:800;
   border:none;border-radius:var(--radius-sm);padding:13px;width:100%;cursor:pointer;display:block;}
 
 .ring-wrap{position:relative;display:flex;align-items:center;justify-content:center;width:130px;height:130px;margin:0 auto 8px;}
@@ -82,7 +97,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .day-dot{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
 .dot-run{background:var(--accent-dim);color:var(--accent);}
 .dot-rest{background:var(--surface2);color:var(--text3);}
-.dot-done{background:var(--accent);color:var(--bg);}
+.dot-done{background:var(--accent);color:var(--ink);}
 .dot-locked{background:var(--surface2);color:var(--text3);opacity:0.5;}
 .day-info{flex:1;min-width:0;}
 .day-name{font-size:13px;font-weight:600;}
@@ -158,7 +173,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .coach-tip-title{font-size:13px;font-weight:700;margin-bottom:6px;}
 .coach-tip-text{font-size:13px;color:var(--text2);line-height:1.6;}
 .start-btn-wrap{padding:4px 16px 20px;}
-.start-btn{width:100%;padding:16px;background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;}
+.start-btn{width:100%;padding:16px;background:var(--accent);color:var(--ink);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;}
 .start-btn:active{opacity:0.85;}
 .start-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
 
@@ -194,7 +209,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .map-placeholder p{font-size:13px;font-weight:500;}
 
 .profile-hero{display:flex;flex-direction:column;align-items:center;padding:20px 20px 16px;}
-.avatar{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--bg);margin-bottom:10px;cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;}
+.avatar{width:76px;height:76px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;color:var(--ink);margin-bottom:10px;cursor:pointer;overflow:hidden;position:relative;flex-shrink:0;}
 .avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 .avatar-edit-hint{position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.5);color:white;font-size:9px;font-weight:700;text-align:center;padding:4px 0;letter-spacing:0.5px;border-radius:0 0 50px 50px;}
 .profile-name{font-size:22px;font-weight:800;cursor:pointer;}
@@ -217,7 +232,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .modal-body{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
 .modal-btn{width:100%;padding:14px;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:block;}
 .modal-btn:active{opacity:0.85;}
-.modal-btn-primary{background:var(--accent);color:var(--bg);}
+.modal-btn-primary{background:var(--accent);color:var(--ink);}
 .modal-btn-warn{background:var(--warn);color:white;}
 .modal-btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border);}
 
@@ -245,7 +260,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .edit-day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
 .edit-day-btn{aspect-ratio:1;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .edit-day-btn.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
-.edit-save-btn{width:100%;padding:15px;background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;margin-top:8px;}
+.edit-save-btn{width:100%;padding:15px;background:var(--accent);color:var(--ink);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);cursor:pointer;margin-top:8px;}
 .edit-cancel-btn{width:100%;padding:13px;background:none;color:var(--text2);font-size:15px;font-weight:600;border:none;cursor:pointer;margin-top:8px;}
 
 /* RUN DETAIL OVERLAY */
@@ -260,7 +275,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .pace-bar-label{font-size:11px;color:var(--text2);width:40px;flex-shrink:0;text-align:right;}
 .pace-bar-track{flex:1;height:24px;background:var(--surface2);border-radius:6px;overflow:hidden;position:relative;}
 .pace-bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 8px;}
-.pace-bar-val{font-size:11px;font-weight:700;color:var(--bg);white-space:nowrap;}
+.pace-bar-val{font-size:11px;font-weight:700;color:var(--ink);white-space:nowrap;}
 
 #run-timer{display:none;position:fixed;inset:0;background:var(--bg);z-index:400;flex-direction:column;align-items:center;padding:var(--safe-top) 24px 0;overflow:hidden;}
 #run-timer.visible{display:flex;}
@@ -277,7 +292,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .timer-controls{display:flex;gap:20px;align-items:center;margin-top:32px;}
 .timer-btn{border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-skip{background:var(--surface2);color:var(--text);width:60px;height:60px;font-size:20px;}
-.btn-pause{background:var(--accent);color:var(--bg);width:80px;height:80px;font-size:26px;}
+.btn-pause{background:var(--accent);color:var(--ink);width:80px;height:80px;font-size:26px;}
 .btn-stop-run{background:var(--warn-dim);color:var(--warn);width:60px;height:60px;font-size:22px;border:1.5px solid rgba(255,107,107,0.3);}
 .btn-stop-run:active{background:rgba(255,107,107,0.25);}
 .finish-btn{margin-top:24px;background:none;border:1px solid var(--border);color:var(--text2);padding:12px 36px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;}
@@ -292,7 +307,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .complete-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px 20px;min-width:90px;}
 .complete-stat-val{font-size:24px;font-weight:800;color:var(--accent);}
 .complete-stat-lbl{font-size:12px;color:var(--text2);margin-top:3px;}
-.complete-done-btn{background:var(--accent);color:var(--bg);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);padding:16px 48px;cursor:pointer;width:100%;}
+.complete-done-btn{background:var(--accent);color:var(--ink);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);padding:16px 48px;cursor:pointer;width:100%;}
 
 /* SAFARI BANNER */
 #safari-banner{display:none;position:fixed;bottom:calc(var(--nav-h) + 8px);left:16px;right:16px;z-index:1000;background:#1A2F24;border:1px solid var(--accent);border-radius:var(--radius);padding:14px 16px;}
@@ -314,7 +329,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .gate-card:active{background:var(--surface2);border-color:var(--accent);}
 .gate-card-x{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-size:11px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;}
 .gate-card-x:active{background:var(--warn);color:#fff;border-color:var(--warn);}
-.gate-av{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--bg);overflow:hidden;flex-shrink:0;}
+.gate-av{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,var(--accent) 0%,var(--accent2) 100%);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:var(--ink);overflow:hidden;flex-shrink:0;}
 .gate-av img{width:100%;height:100%;object-fit:cover;}
 .gate-name{font-size:15px;font-weight:700;text-align:center;word-break:break-word;line-height:1.2;}
 .gate-add{background:var(--surface2);border:1px dashed var(--border);color:var(--text);border-radius:var(--radius-sm);padding:13px 22px;font-size:15px;font-weight:700;cursor:pointer;}
@@ -328,6 +343,10 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 /* GPS INFO + TOGGLE SHEET */
 #gpsinfo-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
 #gpsinfo-overlay.visible{display:flex;}
+
+/* APPEARANCE / THEME SHEET */
+#theme-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#theme-overlay.visible{display:flex;}
 </style>
 </head>
 <body>
@@ -444,6 +463,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="settings-card">
         <div class="settings-row" onclick="showProfileGate()"><span class="sr-icon">🔄</span><span class="sr-label">Switch profile</span><span class="sr-value" id="sr-active-name">Runner</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="showGpsInfo()"><span class="sr-icon">📍</span><span class="sr-label">Location (GPS)</span><span class="sr-value" id="sr-gps">On</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="showTheme()"><span class="sr-icon">🎨</span><span class="sr-label">Appearance</span><span class="sr-value" id="sr-theme">Dark</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('music')"><span class="sr-icon">🎵</span><span class="sr-label">Music app</span><span class="sr-value" id="sr-music">Spotify</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="showSafariBanner()"><span class="sr-icon">📱</span><span class="sr-label">Add to Home Screen</span><span class="sr-value">Guide</span><span class="sr-arrow">›</span></div>
       </div>
@@ -537,6 +557,17 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
     <div id="gpsinfo-status" style="font-size:13px;font-weight:700;text-align:center;margin-bottom:16px;color:var(--accent);">Currently: On</div>
     <button class="modal-btn modal-btn-warn" id="gpsinfo-toggle-btn" onclick="gpsInfoToggle()">Turn GPS Off</button>
     <button class="modal-btn modal-btn-secondary" onclick="closeGpsInfo()">Close</button>
+  </div>
+</div>
+
+<!-- APPEARANCE / THEME -->
+<div id="theme-overlay" onclick="closeTheme()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">🎨 Appearance</div>
+    <div class="modal-body">Choose how Pacer looks. Your choice is saved on this device.</div>
+    <button class="modal-btn modal-btn-secondary" id="theme-dark-btn" onclick="pickTheme('dark')">🌙 Dark</button>
+    <button class="modal-btn modal-btn-secondary" id="theme-light-btn" onclick="pickTheme('light')">☀️ Light</button>
+    <button class="modal-btn modal-btn-secondary" onclick="closeTheme()">Close</button>
   </div>
 </div>
 
@@ -1332,6 +1363,7 @@ function getPaceZones() {
 // INIT
 // ════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  applyTheme();
   initProfiles();
   if (!REG.activeId) {
     showProfileGate();                                // brand-new device → create first profile
@@ -1373,6 +1405,8 @@ function applyProfileToUI() {
   if (srActive) srActive.textContent = p.name || 'Runner';
   // Location (GPS) On/Off row
   updateGpsSettingRow();
+  // Appearance (theme) row
+  updateThemeRow();
 }
 function setGreeting() {
   const h = new Date().getHours();
@@ -1699,6 +1733,28 @@ function updateGpsInfoSheet(){
   if (btn){ btn.textContent = on ? 'Turn GPS Off' : 'Turn GPS On'; btn.className = 'modal-btn ' + (on ? 'modal-btn-warn' : 'modal-btn-primary'); }
 }
 function gpsInfoToggle(){ toggleGpsPref(); updateGpsInfoSheet(); }
+
+// ── Appearance: dark / light theme (saved per device) ──
+function getTheme(){ try { return localStorage.getItem('pacer_theme') || 'dark'; } catch(e){ return 'dark'; } }
+function applyTheme(t){
+  const theme = (t === 'light' || t === 'dark') ? t : getTheme();
+  document.documentElement.classList.toggle('light', theme === 'light');
+  try { localStorage.setItem('pacer_theme', theme); } catch(e){}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', theme === 'light' ? '#F2F3F7' : '#0A0A0F');
+  updateThemeRow();
+}
+function updateThemeRow(){ const el=document.getElementById('sr-theme'); if(el) el.textContent = getTheme()==='light' ? 'Light' : 'Dark'; }
+function showTheme(){ updateThemeSheet(); document.getElementById('theme-overlay').classList.add('visible'); }
+function closeTheme(){ document.getElementById('theme-overlay').classList.remove('visible'); }
+function updateThemeSheet(){
+  const cur = getTheme();
+  const dk = document.getElementById('theme-dark-btn');
+  const lt = document.getElementById('theme-light-btn');
+  if (dk) dk.className = 'modal-btn ' + (cur==='dark' ? 'modal-btn-primary' : 'modal-btn-secondary');
+  if (lt) lt.className = 'modal-btn ' + (cur==='light' ? 'modal-btn-primary' : 'modal-btn-secondary');
+}
+function pickTheme(t){ applyTheme(t); updateThemeSheet(); }
 
 function startGPS() {
   const t = APP.timer;
