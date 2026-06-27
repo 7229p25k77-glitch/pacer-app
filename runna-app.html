@@ -1366,10 +1366,9 @@ document.addEventListener('DOMContentLoaded', () => {
   applyTheme();
   initProfiles();
   if (!REG.activeId) {
-    showProfileGate();                                // brand-new device → create first profile
+    showProfileGate();   // brand-new device → create the first profile
   } else {
-    bootProfile();                                    // load the active profile
-    if (REG.profiles.length > 1) showProfileGate();   // more than one → let them choose who's running
+    bootProfile();       // open straight to the last-used profile (switch via Me → Switch profile)
   }
 });
 
