@@ -509,9 +509,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 
 <!-- RUN TIMER -->
 <div id="run-timer">
-  <div class="timer-top">
-    <button class="timer-btn btn-stop-run" onclick="promptStopRun()" style="position:absolute;right:20px;top:16px;z-index:10;">✕</button>
-  </div>
+  <div class="timer-top"></div>
   <div class="timer-phase" id="timer-phase">WARM UP</div>
   <div class="timer-display" id="timer-display">0:00</div>
   <div class="timer-dist" id="timer-dist">0.00</div>
@@ -521,7 +519,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   <div class="timer-progress-track"><div id="phase-bar"></div></div>
   <div class="timer-segment-label" id="timer-seg-label">Phase 1</div>
   <div class="timer-controls">
-    <button class="timer-btn btn-stop-run" onclick="promptStopRun()">■</button>
+    <button class="timer-btn btn-stop-run" onclick="promptStopRun()">✕</button>
     <button class="timer-btn btn-pause" id="pause-btn" onclick="togglePause()">⏸</button>
     <button class="timer-btn btn-skip" onclick="nextPhase()">⏭</button>
   </div>
