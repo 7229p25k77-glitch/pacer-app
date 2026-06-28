@@ -1188,7 +1188,7 @@ function buildLaps(type, totalKm, weekIndex, mult, level, sessionVariant, dayInd
     }
 
   } else if (isBeginner && sessionVariant) {
-    const { runMins, walkMins, reps, variant, focus } = sessionVariant;
+    const { runMins, walkMins, reps } = sessionVariant;
     const walkPace = 9.5, runPace = 9.5;
 
     if (reps === 1 && walkMins === 0) {
@@ -1197,15 +1197,6 @@ function buildLaps(type, totalKm, weekIndex, mult, level, sessionVariant, dayInd
         : `First ${runMins}-min continuous run! Go slower than feels right. No walk breaks needed.`;
       laps.push({ color:'lap-green', name:`${runMins} min continuous run`, detail: whyText, distKm: Math.round(mainKm*100)/100 });
     } else {
-      // Add a focus cue unique to this variant
-      const focusCues = {
-        'A': 'Technique day — focus on short light steps and relaxed arms',
-        'B': 'Strength day — notice your body getting stronger than last session',
-        'C': 'Endurance day — your longest effort this week, go slowest of the three',
-      };
-      if (focusCues[variant]) {
-        laps.push({ color:'lap-purple', name:`Today\'s focus: ${focus}`, detail: focusCues[variant], distKm: 0 });
-      }
       for (let i = 0; i < reps; i++) {
         const rd = Math.round((runMins / runPace) * 100) / 100;
         // Vary run lap labels so they don't all say the same thing
@@ -1768,6 +1759,9 @@ function applyTheme(t){
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) meta.setAttribute('content', theme === 'light' ? '#F2F3F7' : '#0A0A0F');
   updateThemeRow();
+  // Repaint the route map (canvas colors aren't CSS-driven) if it's on screen.
+  const dov=document.getElementById('detail-overlay');
+  if (dov && dov.classList.contains('visible') && _detailMapLog) renderDetailMap(_detailMapLog);
 }
 function updateThemeRow(){ const el=document.getElementById('sr-theme'); if(el) el.textContent = getTheme()==='light' ? 'Light' : 'Dark'; }
 function showTheme(){ updateThemeSheet(); document.getElementById('theme-overlay').classList.add('visible'); }
@@ -2341,42 +2335,105 @@ function openRunDetail(id) {
   document.getElementById('detail-overlay').classList.add('visible');
 }
 
+// Remember the run whose map is on screen so we can repaint it on theme change.
+let _detailMapLog = null;
+
+// Pull live theme colors from the CSS variables so the map follows light/dark.
+function mapColors(){
+  const cs = getComputedStyle(document.documentElement);
+  const v = n => cs.getPropertyValue(n).trim();
+  return {
+    bg:c=>v('--surface2'), // map "land"
+    road:  v('--border'),  // roads, lanes, paths (shaded via alpha)
+    route: v('--accent'),
+    start: v('--accent'),
+    finish:v('--warn'),
+    pill:  v('--surface'),
+    pillBorder: v('--border'),
+    text:  v('--text2'),
+    light: document.documentElement.classList.contains('light'),
+  };
+}
+
 function renderDetailMap(log) {
+  _detailMapLog = log;
   const el=document.getElementById('detail-map');
   const pts=log.gpsPositions||[];
   if(pts.length<2){
     el.innerHTML=`<div class="map-placeholder"><span>🗺️</span><p>No GPS data recorded</p><p style="font-size:11px;margin-top:4px;">Grant location permission before running</p></div>`;
     return;
   }
-  // Draw canvas map
+  const c = mapColors();
+  const cssW = el.offsetWidth||340, cssH = 200;
+  const dpr = window.devicePixelRatio || 1;
   const canvas=document.createElement('canvas');
-  canvas.width=el.offsetWidth||340; canvas.height=200;
+  canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
+  canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr);
   el.innerHTML=''; el.appendChild(canvas);
   const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+
+  // ── Solid "land" with a road network drawn locally (no network) ──
+  // Roads, lanes and hiking paths are all the same hue, separated by shade
+  // (alpha over the solid land) + width + line style, tuned per theme.
+  ctx.fillStyle=c.bg(); ctx.fillRect(0,0,cssW,cssH);
+  ctx.strokeStyle=c.road; ctx.lineJoin='round'; ctx.lineCap='round';
+  const A = c.light ? {lane:0.55, major:0.95, path:0.75}   // darker shades on light land
+                    : {lane:0.40, major:0.80, path:0.55};  // lighter shades on dark land
+
+  // minor lanes — thin, faintest shade, irregular spacing so it doesn't read as graph paper
+  ctx.setLineDash([]); ctx.lineWidth=1.5; ctx.globalAlpha=A.lane;
+  ctx.beginPath();
+  [0.12,0.27,0.61,0.78,0.92].forEach(fx=>{ const x=cssW*fx; ctx.moveTo(x,0); ctx.lineTo(x,cssH); });
+  [0.22,0.45,0.9].forEach(fy=>{ const y=cssH*fy; ctx.moveTo(0,y); ctx.lineTo(cssW,y); });
+  ctx.stroke();
+
+  // major roads — thick, strongest shade
+  ctx.lineWidth=5; ctx.globalAlpha=A.major;
+  ctx.beginPath();
+  ctx.moveTo(0,cssH*0.60); ctx.lineTo(cssW,cssH*0.33);   // diagonal avenue
+  ctx.moveTo(cssW*0.46,0); ctx.lineTo(cssW*0.46,cssH);   // main through-road
+  ctx.stroke();
+
+  // hiking path — dashed, mid shade, gently curved
+  ctx.lineWidth=2; ctx.globalAlpha=A.path; ctx.setLineDash([5,5]);
+  ctx.beginPath();
+  ctx.moveTo(cssW*0.04,cssH*0.96);
+  ctx.bezierCurveTo(cssW*0.30,cssH*0.72, cssW*0.55,cssH*0.97, cssW*0.96,cssH*0.52);
+  ctx.stroke();
+  ctx.setLineDash([]); ctx.globalAlpha=1;
+
+  // ── Route (aspect-ratio preserved so it isn't distorted over the grid) ──
   const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
   const minLat=Math.min(...lats), maxLat=Math.max(...lats);
   const minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
-  const pad=20;
-  const w=canvas.width-pad*2, h=canvas.height-pad*2;
-  const scaleX=w/(maxLng-minLng||0.001), scaleY=h/(maxLat-minLat||0.001);
-  const toX=lng=>(lng-minLng)*scaleX+pad;
-  const toY=lat=>(maxLat-lat)*scaleY+pad;
-  ctx.fillStyle='#1C1C27'; ctx.fillRect(0,0,canvas.width,canvas.height);
-  // Draw route
-  ctx.strokeStyle='#00E5A0'; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.lineCap='round';
-  ctx.beginPath();
-  pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));});
-  ctx.stroke();
-  // Start/end markers
-  if(pts.length>0){
-    ctx.fillStyle='#00E5A0'; ctx.beginPath(); ctx.arc(toX(pts[0].lng),toY(pts[0].lat),7,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle='#FF6B6B'; ctx.beginPath(); ctx.arc(toX(pts[pts.length-1].lng),toY(pts[pts.length-1].lat),7,0,Math.PI*2); ctx.fill();
-  }
-  // Legend
-  ctx.fillStyle='rgba(10,10,15,0.7)'; ctx.fillRect(8,8,90,32); ctx.fillRect(canvas.width-98,8,90,32);
-  ctx.font='bold 11px -apple-system,system-ui,sans-serif';
-  ctx.fillStyle='#00E5A0'; ctx.fillText('● Start', 16, 28);
-  ctx.fillStyle='#FF6B6B'; ctx.fillText('● Finish', canvas.width-90, 28);
+  const pad=24;
+  const dLng=(maxLng-minLng)||0.0001, dLat=(maxLat-minLat)||0.0001;
+  const s=Math.min((cssW-pad*2)/dLng,(cssH-pad*2)/dLat);
+  const offX=(cssW-dLng*s)/2, offY=(cssH-dLat*s)/2;
+  const toX=lng=>(lng-minLng)*s+offX;
+  const toY=lat=>(maxLat-lat)*s+offY;
+  const trace=()=>{ ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
+  ctx.strokeStyle=c.route; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.globalAlpha=0.25; ctx.lineWidth=9; trace();           // soft glow
+  ctx.globalAlpha=1;    ctx.lineWidth=3.5; trace();          // route line
+
+  // Start/finish markers with a halo so they read over the route
+  const mark=(x,y,fill)=>{ ctx.fillStyle=c.bg(); ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2); ctx.fill(); };
+  mark(toX(pts[0].lng),toY(pts[0].lat),c.start);
+  mark(toX(pts[pts.length-1].lng),toY(pts[pts.length-1].lat),c.finish);
+
+  // Legend pills
+  ctx.font='bold 11px -apple-system,system-ui,sans-serif'; ctx.textBaseline='middle';
+  const pill=(x,label,dot)=>{
+    ctx.fillStyle=c.pill; ctx.fillRect(x,8,80,26);
+    ctx.strokeStyle=c.pillBorder; ctx.lineWidth=1; ctx.strokeRect(x+0.5,8.5,79,25);
+    ctx.fillStyle=dot; ctx.beginPath(); ctx.arc(x+14,21,4,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=c.text; ctx.fillText(label,x+25,22);
+  };
+  pill(8,'Start',c.start);
+  pill(cssW-88,'Finish',c.finish);
+  ctx.textBaseline='alphabetic';
 }
 
 // Build the per-lap pace data for a run using its ACTUAL time & distance.
