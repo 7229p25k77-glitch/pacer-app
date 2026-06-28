@@ -1751,32 +1751,54 @@ function pickTheme(t){ applyTheme(t); updateThemeSheet(); }
 function startGPS() {
   const t = APP.timer;
   t.gpsPositions = [];
+  t.gpsActive = false;
+  const setStatus = (msg) => { const el = document.getElementById('timer-gps'); if (el) el.textContent = msg; };
   if (getGpsPref() === 'no') {
-    document.getElementById('timer-gps').textContent = '📍 GPS off — distance estimated';
+    setStatus('📍 GPS off — distance estimated');
     return;
   }
-  if ('geolocation' in navigator) {
-    const opts = {enableHighAccuracy:true, maximumAge:0, timeout:10000};
-    t.watchId = navigator.geolocation.watchPosition(pos => {
-      t.gpsPositions.push({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-        ts: Date.now(),
-        acc: pos.coords.accuracy,
-      });
-      document.getElementById('timer-gps').textContent = `📍 GPS Active (${t.gpsPositions.length} points)`;
-    }, err => {
-      document.getElementById('timer-gps').textContent = '📍 GPS unavailable — distance estimated';
-    }, opts);
-  } else {
-    document.getElementById('timer-gps').textContent = '📍 GPS not supported — distance estimated';
+  if (!('geolocation' in navigator)) {
+    setStatus('📍 GPS not supported — distance estimated');
+    return;
   }
+  setStatus('📍 Finding GPS…');
+  // Generous timeout + allow a slightly-stale fix so the first lock (which can
+  // take 15-30s on a phone) isn't treated as a hard failure.
+  const opts = { enableHighAccuracy: true, maximumAge: 10000, timeout: 30000 };
+  t.watchId = navigator.geolocation.watchPosition(pos => {
+    t.gpsActive = true;
+    t.gpsPositions.push({
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      ts: Date.now(),
+      acc: pos.coords.accuracy,
+    });
+    setStatus(`📍 GPS active (${t.gpsPositions.length} pts)`);
+  }, err => {
+    if (t.gpsActive) return;                 // already working — ignore a momentary hiccup
+    if (err.code === 1)      setStatus('📍 Location blocked — allow it in your phone Settings');
+    else if (err.code === 3) setStatus('📍 Still finding GPS… estimating for now');
+    else                     setStatus('📍 GPS unavailable — distance estimated');
+  }, opts);
 }
 function stopGPS() {
   if (APP.timer.watchId !== null) {
     navigator.geolocation.clearWatch(APP.timer.watchId);
     APP.timer.watchId = null;
   }
+}
+
+// Estimated pace (sec/km) for a lap when GPS isn't available — based on the
+// runner's pace zones shown on the home page (Easy / Tempo / Race), with a
+// realistic walking pace for warm-up / walk / cool-down segments.
+function lapPaceSecPerKm(color, name){
+  const zones = getPaceZones();           // [Easy, Tempo, Race] for this level
+  const mid = z => Math.round((z.lo + z.hi) / 2);
+  const n = (name || '').toLowerCase();
+  if (n.includes('walk') || n.includes('warm') || n.includes('cool') || n.includes('recovery')) return 570; // ~9:30/km walk
+  if (color === 'lap-orange') return mid(zones[2]); // Race effort (intervals / race / fast)
+  if (color === 'lap-purple') return mid(zones[1]); // Tempo
+  return mid(zones[0]);                              // Easy (default green runs)
 }
 function calcGPSDistance(positions) {
   let total = 0;
@@ -1906,15 +1928,20 @@ function startRun(runOverride) {
   const t = APP.timer;
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
 
-  // Build phases from laps — store estimated duration in seconds per phase
-  const speedMps = 0.00145; // km per tick (1 sec) — ~5.2 km/h
-  t.phases = run.laps.map(l => ({
-    label:    l.name.toUpperCase(),
-    name:     l.name,
-    distKm:   l.distKm,
-    color:    l.color,
-    estSecs:  Math.max(5, Math.round(l.distKm / speedMps)),
-  }));
+  // Build phases from laps. Each phase carries a suggested pace (sec/km) that
+  // drives both its duration and the GPS-off distance estimate, so the shown
+  // pace matches the home-page pace zones.
+  t.phases = run.laps.map(l => {
+    const pace = lapPaceSecPerKm(l.color, l.name); // sec/km
+    return {
+      label:    l.name.toUpperCase(),
+      name:     l.name,
+      distKm:   l.distKm,
+      color:    l.color,
+      pace:     pace,
+      estSecs:  Math.max(5, Math.round(l.distKm * pace)),
+    };
+  });
 
   t.elapsed     = 0;
   t.distKm      = 0;
@@ -1952,19 +1979,23 @@ function timerTick() {
 
   t.elapsed++;
 
-  // Distance from GPS or fallback simulation
+  // How far we add each second when estimating — based on the current phase's
+  // suggested pace, so the displayed pace matches the home-page pace zones.
+  const cp = t.phases[t.phaseIndex];
+  const stepKm = (cp && cp.pace) ? (1 / cp.pace) : 0.00145;
+
+  // Use real GPS distance if we have it, otherwise the pace-based estimate
   const gpsKm = t.gpsPositions.length > 1 ? calcGPSDistance(t.gpsPositions) : 0;
   if (gpsKm > t.distKm + 0.001) {
     t.distKm = gpsKm;
   } else {
-    t.distKm += 0.00145;
+    t.distKm += stepKm;
   }
 
   t.phaseElapsed++;
-  const cp = t.phases[t.phaseIndex];
   if (!cp) { updateTimerUI(); return; }
 
-  t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + 0.00145;
+  t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + stepKm;
   const estSecs  = cp.estSecs;
   const secsLeft = estSecs - t.phaseElapsed;
 
