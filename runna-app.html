@@ -329,6 +329,42 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .complete-stat-val{font-size:24px;font-weight:800;color:var(--accent);}
 .complete-stat-lbl{font-size:12px;color:var(--text2);margin-top:3px;}
 .complete-done-btn{background:var(--accent);color:var(--ink);font-size:16px;font-weight:800;border:none;border-radius:var(--radius);padding:16px 48px;cursor:pointer;width:100%;}
+.complete-btn-row{display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px;}
+.complete-analytics-btn{background:var(--surface);color:var(--text);font-size:16px;font-weight:800;border:1px solid var(--border);border-radius:var(--radius);padding:16px 48px;cursor:pointer;width:100%;}
+
+/* POST-RUN ANALYTICS */
+#analytics-overlay{display:none;position:fixed;inset:0;z-index:610;background:var(--bg);flex-direction:column;}
+#analytics-overlay.visible{display:flex;}
+.analytics-header{padding:calc(16px + var(--safe-top)) 20px 16px;background:linear-gradient(160deg,#0F2A20 0%,var(--bg) 60%);flex-shrink:0;}
+html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--bg) 60%);}
+.analytics-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:24px;}
+.an-section-title{font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text2);margin:20px 16px 10px;}
+.an-card{margin:0 16px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;}
+/* feel / effort review */
+.feel-opts{display:flex;gap:8px;}
+.feel-btn{flex:1;background:var(--surface2);border:1.5px solid transparent;border-radius:var(--radius-sm);padding:10px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--text2);transition:border-color .15s,background .15s;}
+.feel-btn .feel-emoji{font-size:22px;line-height:1;}
+.feel-btn .feel-lbl{font-size:10px;font-weight:700;line-height:1.1;text-align:center;}
+.feel-btn.selected{border-color:var(--accent);background:var(--accent-dim);color:var(--text);}
+.feel-note{margin-top:12px;font-size:13px;line-height:1.5;color:var(--text2);}
+.feel-note.warn{color:var(--warn);}
+.feel-note b{color:var(--text);}
+/* comparison */
+.cmp-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.cmp-row:last-child{border-bottom:none;}
+.cmp-label{font-size:14px;color:var(--text2);}
+.cmp-vals{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;}
+.cmp-delta{font-size:13px;font-weight:800;padding:2px 8px;border-radius:20px;}
+.cmp-up{color:var(--accent);background:var(--accent-dim);}
+.cmp-down{color:var(--warn);background:var(--warn-dim);}
+.cmp-flat{color:var(--text2);background:var(--surface2);}
+.cmp-empty{font-size:14px;color:var(--text2);line-height:1.5;}
+/* achievements */
+.ach-badge{display:flex;align-items:center;gap:12px;padding:10px 0;}
+.ach-badge .ach-emoji{font-size:26px;}
+.ach-badge .ach-text{font-size:14px;font-weight:700;}
+.ach-badge .ach-sub{font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;}
+.an-footer{padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));}
 
 .info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
 
@@ -647,7 +683,34 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
     <div class="complete-stat"><div class="complete-stat-val" id="cs-time">0:00</div><div class="complete-stat-lbl">time</div></div>
     <div class="complete-stat"><div class="complete-stat-val" id="cs-pace">—</div><div class="complete-stat-lbl" id="cs-pace-lbl">/km pace</div></div>
   </div>
-  <button class="complete-done-btn" onclick="dismissComplete()">Back to Home</button>
+  <div class="complete-btn-row">
+    <button class="complete-done-btn" onclick="openRunAnalytics(LAST_RUN_ID)">📊 View Analytics</button>
+    <button class="complete-analytics-btn" onclick="dismissComplete()">Back to Home</button>
+  </div>
+</div>
+
+<!-- POST-RUN ANALYTICS -->
+<div id="analytics-overlay">
+  <div class="analytics-header">
+    <button class="back-btn" onclick="dismissAnalytics()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Back to Home
+    </button>
+    <div class="workout-type-pill" id="an-type">Run</div>
+    <div class="workout-title" id="an-title">Run Analytics</div>
+    <div class="workout-meta" id="an-meta"></div>
+  </div>
+  <div class="analytics-scroll">
+    <div class="an-section-title">How did this run feel?</div>
+    <div class="an-card" id="an-feel"></div>
+    <div class="an-section-title">Your route</div>
+    <div class="detail-map" id="an-map"></div>
+    <div class="pace-chart" id="an-pace-chart"></div>
+    <div class="an-section-title">Vs your last run</div>
+    <div class="an-card" id="an-compare"></div>
+    <div class="an-section-title">Achievements</div>
+    <div class="an-card" id="an-achievements"></div>
+    <div class="an-footer"><button class="complete-done-btn" onclick="dismissAnalytics()">Back to Home</button></div>
+  </div>
 </div>
 
 <script>
@@ -1760,8 +1823,10 @@ function applyTheme(t){
   if (meta) meta.setAttribute('content', theme === 'light' ? '#F2F3F7' : '#0A0A0F');
   updateThemeRow();
   // Repaint the route map (canvas colors aren't CSS-driven) if it's on screen.
-  const dov=document.getElementById('detail-overlay');
-  if (dov && dov.classList.contains('visible') && _detailMapLog) renderDetailMap(_detailMapLog);
+  if (_detailMapLog){
+    const vis = id => { const e=document.getElementById(id); return e && e.classList.contains('visible'); };
+    if (vis('detail-overlay') || vis('analytics-overlay')) renderDetailMap(_detailMapLog, _detailMapEl);
+  }
 }
 function updateThemeRow(){ const el=document.getElementById('sr-theme'); if(el) el.textContent = getTheme()==='light' ? 'Light' : 'Dark'; }
 function showTheme(){ updateThemeSheet(); document.getElementById('theme-overlay').classList.add('visible'); }
@@ -2186,6 +2251,8 @@ function finishRun() {
     type: isFree ? 'free' : (run ? run.type : 'easy'),
     name: isFree ? 'Free Run' : (run ? (document.getElementById('wo-title').textContent) : 'Run'),
     distKm, timeStr, paceSecPerKm,
+    durSec: elapsed,
+    feel: null,                    // runner's effort/strain rating (1-5), set in analytics
     gpsPositions: gpsPos,
     lapDistances: lapDists,
     lapTimes: lapTimesArr,
@@ -2193,6 +2260,7 @@ function finishRun() {
     wi: cw ? cw.wi : null, ri: cw ? cw.ri : null,
   };
   APP.logs.unshift(logEntry);
+  LAST_RUN_ID = logEntry.id;
   if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; }
   save();
   renderHome(); renderPlan(); updateLogScreen();
@@ -2206,6 +2274,153 @@ function finishRun() {
 function dismissComplete() {
   document.getElementById('complete-overlay').classList.remove('visible');
   showScreen('home-screen');
+}
+
+// ════════════════════════════════════════
+// POST-RUN ANALYTICS POPUP
+// Opened from the "Run Complete" celebration. Shows an effort/strain review,
+// the route map, pace splits, a comparison to the last run, and any PBs.
+// ════════════════════════════════════════
+let LAST_RUN_ID = null;       // id of the most recently finished run (for the celebration button)
+let ANALYTICS_LOG_ID = null;  // run currently shown in the analytics popup
+
+// Effort / strain scale (RPE-style). Higher = harder = more strain on the body.
+const FEEL_LEVELS = [
+  { v:1, emoji:'😌', label:'Very easy' },
+  { v:2, emoji:'🙂', label:'Easy' },
+  { v:3, emoji:'😅', label:'Moderate' },
+  { v:4, emoji:'😮‍💨', label:'Hard' },
+  { v:5, emoji:'🥵', label:'Max effort' },
+];
+
+// Duration in seconds (new logs store durSec; old ones are parsed from timeStr).
+function logDurSec(log){
+  if (log.durSec != null) return log.durSec;
+  const parts = String(log.timeStr||'').split(':').map(Number);
+  if (parts.some(n=>isNaN(n))) return 0;
+  if (parts.length===3) return parts[0]*3600+parts[1]*60+parts[2];
+  if (parts.length===2) return parts[0]*60+parts[1];
+  return 0;
+}
+
+function openRunAnalytics(id){
+  const log = APP.logs.find(l=>l.id===id);
+  if(!log) return;
+  ANALYTICS_LOG_ID = id;
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run'};
+  document.getElementById('an-type').textContent = typeLabels[log.type]||'Run';
+  document.getElementById('an-title').textContent = log.name||'Run';
+  document.getElementById('an-meta').innerHTML = `
+    <div class="wm-item"><div class="wm-val">${fmtShort(log.distKm||0)}</div><div class="wm-lbl">Distance</div></div>
+    <div class="wm-item"><div class="wm-val">${log.timeStr||'—'}</div><div class="wm-lbl">Time</div></div>
+    <div class="wm-item"><div class="wm-val">${log.paceSecPerKm>0?fmtPace(log.paceSecPerKm):'—'}</div><div class="wm-lbl">${paceLabel()}</div></div>`;
+  renderFeel(log);
+  renderDetailMap(log, 'an-map');
+  renderPaceChart(log, 'an-pace-chart');
+  renderRunComparison(log);
+  renderAchievements(log);
+  document.getElementById('complete-overlay').classList.remove('visible');
+  document.getElementById('analytics-overlay').classList.add('visible');
+  const sc=document.querySelector('.analytics-scroll'); if(sc) sc.scrollTop=0;
+}
+
+function dismissAnalytics(){
+  document.getElementById('analytics-overlay').classList.remove('visible');
+  document.getElementById('complete-overlay').classList.remove('visible');
+  showScreen('home-screen');
+}
+
+function renderFeel(log){
+  const el=document.getElementById('an-feel');
+  const btns = FEEL_LEVELS.map(f=>`
+    <button class="feel-btn${log.feel===f.v?' selected':''}" onclick="setFeel(${f.v})">
+      <span class="feel-emoji">${f.emoji}</span><span class="feel-lbl">${f.label}</span>
+    </button>`).join('');
+  let note;
+  if(log.feel==null){
+    note=`<div class="feel-note">Rate your effort so Pacer can track your training load and flag when you might need more recovery.</div>`;
+  } else if(log.feel>=4){
+    note=`<div class="feel-note warn"><b>Tough one.</b> Two hard runs back-to-back raises injury risk — make your next run easy or take a rest day.</div>`;
+  } else if(log.feel===3){
+    note=`<div class="feel-note"><b>Solid effort.</b> Right in the training sweet spot — keep your easy days easy to stay fresh.</div>`;
+  } else {
+    note=`<div class="feel-note"><b>Nice and easy.</b> Great for building your aerobic base without piling on strain.</div>`;
+  }
+  el.innerHTML = `<div class="feel-opts">${btns}</div>${note}`;
+}
+
+function setFeel(v){
+  const log = APP.logs.find(l=>l.id===ANALYTICS_LOG_ID);
+  if(!log) return;
+  log.feel = (log.feel===v) ? null : v;   // tap again to clear
+  save();
+  renderFeel(log);
+}
+
+// Newest run that happened before this one — same type if possible, else any.
+function findPrevRun(log){
+  const t = log.fullDate || '';
+  const older = APP.logs.filter(l=>l!==log && (l.fullDate||'') < t); // APP.logs is newest-first
+  return older.find(l=>l.type===log.type) || older[0] || null;
+}
+
+function cmpRow(label, valStr, delta, kind){
+  let cls='cmp-flat', txt='≈ same';
+  const eps = kind==='pace' ? 2 : (kind==='dist' ? 0.05 : 2);
+  if(Math.abs(delta) > eps){
+    if(kind==='dist'){ cls=delta>0?'cmp-up':'cmp-down'; txt=(delta>0?'▲ +':'▼ −')+fmtShort(Math.abs(delta)); }
+    else if(kind==='pace'){ cls=delta<0?'cmp-up':'cmp-down'; txt=(delta<0?'▲ ':'▼ ')+fmtPace(Math.abs(delta))+paceLabel()+(delta<0?' faster':' slower'); }
+    else { cls='cmp-flat'; txt=(delta>0?'+':'−')+fmtTime(Math.abs(delta)); }
+  }
+  return `<div class="cmp-row"><span class="cmp-label">${label}</span><span class="cmp-vals">${escapeHtml(valStr)} <span class="cmp-delta ${cls}">${txt}</span></span></div>`;
+}
+
+function renderRunComparison(log){
+  const el=document.getElementById('an-compare');
+  const prev=findPrevRun(log);
+  if(!prev){
+    el.innerHTML=`<div class="cmp-empty">This is your first logged run — finish another to see how you're progressing. 🎉</div>`;
+    return;
+  }
+  const rows=[ cmpRow('Distance', fmtShort(log.distKm||0), (log.distKm||0)-(prev.distKm||0), 'dist') ];
+  if(log.paceSecPerKm>0 && prev.paceSecPerKm>0)
+    rows.push(cmpRow('Avg pace', fmtPace(log.paceSecPerKm)+' '+paceLabel(), log.paceSecPerKm-prev.paceSecPerKm, 'pace'));
+  rows.push(cmpRow('Time', log.timeStr||'—', logDurSec(log)-logDurSec(prev), 'time'));
+  const when = prev.fullDate ? new Date(prev.fullDate).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : 'last run';
+  el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">vs ${escapeHtml(prev.name||'your last run')} · ${when}</div>` + rows.join('');
+}
+
+function renderAchievements(log){
+  const el=document.getElementById('an-achievements');
+  const all=APP.logs.slice();
+  const before = all.filter(l=>l!==log && (l.fullDate||'') < (log.fullDate||''));
+  const badges=[];
+  if(before.length===0){
+    badges.push(['🌟','First run logged!','Every journey starts with one step.']);
+  }
+  const maxDistBefore = Math.max(0, ...before.map(l=>l.distKm||0));
+  if(before.length>0 && (log.distKm||0) > maxDistBefore){
+    badges.push(['🏅','New longest run!',`${fmtShort(log.distKm||0)} — your farthest yet.`]);
+  }
+  const pacesBefore = before.map(l=>l.paceSecPerKm).filter(p=>p>0);
+  if(log.paceSecPerKm>0 && pacesBefore.length>0 && log.paceSecPerKm < Math.min(...pacesBefore)){
+    badges.push(['⚡','Fastest pace yet!',`${fmtPace(log.paceSecPerKm)} ${paceLabel()} average.`]);
+  }
+  const totalNow = all.reduce((s,l)=>s+(l.distKm||0),0);
+  const totalBefore = totalNow - (log.distKm||0);
+  const crossed = [5,10,25,50,100,150,200,250,500].find(m=>totalBefore < m && totalNow >= m);
+  if(crossed){
+    badges.push(['🎯',`${crossed} km milestone!`,`You've now logged ${fmtShort(totalNow)} total with Pacer.`]);
+  }
+  const maxDurBefore = Math.max(0, ...before.map(l=>logDurSec(l)));
+  if(before.length>0 && logDurSec(log)>0 && logDurSec(log) > maxDurBefore){
+    badges.push(['⏱️','Longest time on feet!',`${log.timeStr} of running.`]);
+  }
+  if(badges.length===0){
+    el.innerHTML=`<div class="cmp-empty">No new records this run — but consistency is what builds fitness. Keep stacking up the miles! 💪</div>`;
+    return;
+  }
+  el.innerHTML = badges.map(b=>`<div class="ach-badge"><span class="ach-emoji">${b[0]}</span><div><div class="ach-text">${b[1]}</div><div class="ach-sub">${b[2]}</div></div></div>`).join('');
 }
 
 // Quick-start the next scheduled plan run (guided), straight from the Log page
@@ -2335,8 +2550,9 @@ function openRunDetail(id) {
   document.getElementById('detail-overlay').classList.add('visible');
 }
 
-// Remember the run whose map is on screen so we can repaint it on theme change.
+// Remember the run + element whose map is on screen so we can repaint on theme change.
 let _detailMapLog = null;
+let _detailMapEl = 'detail-map';
 
 // Pull live theme colors from the CSS variables so the map follows light/dark.
 function mapColors(){
@@ -2355,9 +2571,10 @@ function mapColors(){
   };
 }
 
-function renderDetailMap(log) {
-  _detailMapLog = log;
-  const el=document.getElementById('detail-map');
+function renderDetailMap(log, elId) {
+  elId = elId || 'detail-map';
+  _detailMapLog = log; _detailMapEl = elId;
+  const el=document.getElementById(elId);
   const pts=log.gpsPositions||[];
   if(pts.length<2){
     el.innerHTML=`<div class="map-placeholder"><span>🗺️</span><p>No GPS data recorded</p><p style="font-size:11px;margin-top:4px;">Grant location permission before running</p></div>`;
@@ -2458,11 +2675,12 @@ function buildLapPaceData(log){
 
 let DETAIL_LAPS = null;
 
-function renderPaceChart(log) {
+function renderPaceChart(log, elId) {
+  elId = elId || 'detail-pace-chart';
   const laps = buildLapPaceData(log);
-  const el = document.getElementById('detail-pace-chart');
+  const el = document.getElementById(elId);
   if (!laps.length) { el.innerHTML = ''; DETAIL_LAPS = null; return; }
-  DETAIL_LAPS = { laps, avgPaceSec: log.paceSecPerKm || 0, distKm: log.distKm || 0, timeStr: log.timeStr || '' };
+  DETAIL_LAPS = { laps, avgPaceSec: log.paceSecPerKm || 0, distKm: log.distKm || 0, timeStr: log.timeStr || '', elId };
   drawPaceChart(-1);   // -1 = show overall average
 }
 
@@ -2497,7 +2715,7 @@ function drawPaceChart(sel) {
       </button>`;
   });
 
-  document.getElementById('detail-pace-chart').innerHTML =
+  document.getElementById(D.elId || 'detail-pace-chart').innerHTML =
     `<div class="pace-chart-title">Pace Analysis</div>
      <div class="pc-readout">${readout}</div>
      <div class="pc-chart-area">
