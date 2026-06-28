@@ -1752,6 +1752,7 @@ function startGPS() {
   const t = APP.timer;
   t.gpsPositions = [];
   t.gpsActive = false;
+  t.gpsOffset = null;
   const setStatus = (msg) => { const el = document.getElementById('timer-gps'); if (el) el.textContent = msg; };
   if (getGpsPref() === 'no') {
     setStatus('📍 GPS off — distance estimated');
@@ -1802,8 +1803,12 @@ function lapPaceSecPerKm(color, name){
 }
 function calcGPSDistance(positions) {
   let total = 0;
-  for (let i=1; i<positions.length; i++) {
-    total += haversine(positions[i-1], positions[i]);
+  let last = null;
+  for (let i = 0; i < positions.length; i++) {
+    const p = positions[i];
+    if (p.acc != null && p.acc > 40) continue;   // drop very inaccurate fixes (they cause false jumps)
+    if (last) total += haversine(last, p);
+    last = p;
   }
   return total;
 }
@@ -1984,10 +1989,13 @@ function timerTick() {
   const cp = t.phases[t.phaseIndex];
   const stepKm = (cp && cp.pace) ? (1 / cp.pace) : 0.00145;
 
-  // Use real GPS distance if we have it, otherwise the pace-based estimate
-  const gpsKm = t.gpsPositions.length > 1 ? calcGPSDistance(t.gpsPositions) : 0;
-  if (gpsKm > t.distKm + 0.001) {
-    t.distKm = gpsKm;
+  // Once GPS is locked, distance tracks actual physical movement — it stays put
+  // when you stop and only grows when you really move. Anchor on the first fix so
+  // it doesn't jump backward from the earlier estimate. No GPS yet → estimate.
+  if (t.gpsActive && t.gpsPositions.length > 1) {
+    const gpsDist = calcGPSDistance(t.gpsPositions);
+    if (t.gpsOffset == null) t.gpsOffset = Math.max(0, t.distKm - gpsDist);
+    t.distKm = t.gpsOffset + gpsDist;
   } else {
     t.distKm += stepKm;
   }
