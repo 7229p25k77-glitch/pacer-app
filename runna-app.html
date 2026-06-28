@@ -457,7 +457,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="profile-goal" id="profile-goal-el">Beginner · 5K Goal</div>
     </div>
     <div class="stat-row">
-      <div class="stat-box"><div class="stat-val accent-val">8</div><div class="stat-lbl">Weeks</div></div>
+      <div class="stat-box"><div class="stat-val accent-val" id="profile-weeks">8</div><div class="stat-lbl">Weeks</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="profile-runs-done">0</div><div class="stat-lbl">Runs done</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="profile-streak">0🔥</div><div class="stat-lbl">Streak</div></div>
     </div>
@@ -466,6 +466,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
       <div class="settings-card">
         <div class="settings-row" onclick="openEdit('name')"><span class="sr-icon">👤</span><span class="sr-label">Name</span><span class="sr-value" id="sr-name">Runner</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('goal')"><span class="sr-icon">🎯</span><span class="sr-label">Goal</span><span class="sr-value" id="sr-goal">5K</span><span class="sr-arrow">›</span></div>
+        <div class="settings-row" onclick="openEdit('weeks')"><span class="sr-icon">🗓️</span><span class="sr-label">Plan length</span><span class="sr-value" id="sr-weeks">8 weeks</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('days')"><span class="sr-icon">📅</span><span class="sr-label">Run days</span><span class="sr-value" id="sr-days">Wed, Fri, Sun</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('level')"><span class="sr-icon">📊</span><span class="sr-label">Level</span><span class="sr-value" id="sr-level">Beginner</span><span class="sr-arrow">›</span></div>
         <div class="settings-row" onclick="openEdit('units')"><span class="sr-icon">📏</span><span class="sr-label">Distance units</span><span class="sr-value" id="sr-units">km</span><span class="sr-arrow">›</span></div>
@@ -646,7 +647,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 const REG_KEY      = 'pacer_registry';   // the list of profiles + which one is active
 const DATA_PREFIX  = 'pacer_data_';      // each profile's data lives at DATA_PREFIX + id
 const MAX_PROFILES = 5;
-const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', music:'Spotify', avatarDataUrl:null };
+const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', planWeeks:8, music:'Spotify', avatarDataUrl:null };
 let REG = { activeId:null, profiles:[] };
 
 function saveRegistry(){ try { localStorage.setItem(REG_KEY, JSON.stringify(REG)); } catch(e){} }
@@ -711,7 +712,7 @@ function resetAppData(){
 function bootProfile(){
   resetAppData();
   load();
-  APP.plan = makePlan(APP.profile.goal, APP.profile.level, APP.profile.days);
+  APP.plan = makePlan(APP.profile.goal, APP.profile.level, APP.profile.days, APP.profile.planWeeks);
   setGreeting(); setTodayLabel();
   applyProfileToUI();
   applyAvatarToUI(APP.profile.avatarDataUrl || null);
@@ -816,13 +817,13 @@ function renderProfileGate(){
 }
 // ── Setup wizard: new profiles pick their settings (including GPS) up front ──
 let WIZ = null;
-const WIZ_STEPS = ['name','goal','level','days','units','gps'];
+const WIZ_STEPS = ['name','goal','weeks','level','days','units','gps'];
 
 function showCreateProfile(firstTime){ startWizard(firstTime); }
 
 function startWizard(firstTime){
   WIZ = { step:0, firstTime:!!firstTime,
-    data:{ name:'', goal:'5K', level:'Beginner', days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
+    data:{ name:'', goal:'5K', weeks:'8', level:'Beginner', days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
   document.getElementById('gate-list').style.display = 'none';
   document.getElementById('gate-add-btn').style.display = 'none';
   document.getElementById('gate-close').style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
@@ -843,6 +844,8 @@ function renderWizard(){
       <input class="edit-input" id="wiz-name" type="text" maxlength="20" placeholder="Enter a name" value="${escapeHtml(d.name)}" style="text-align:center;">`;
   } else if (step === 'goal'){
     body = `<div class="wiz-q">What's your goal?</div>` + optBlocks('goal', [['5K','5K'],['10K','10K'],['Half','Half Marathon'],['Marathon','Marathon']], d.goal);
+  } else if (step === 'weeks'){
+    body = `<div class="wiz-q">How long is your plan?</div>` + optBlocks('weeks', [['4','4 weeks'],['6','6 weeks'],['8','8 weeks'],['10','10 weeks'],['12','12 weeks'],['14','14 weeks'],['16','16 weeks']], d.weeks);
   } else if (step === 'level'){
     body = `<div class="wiz-q">Your experience level?</div>` + optBlocks('level', [['Beginner','Beginner'],['Intermediate','Intermediate'],['Advanced','Advanced']], d.level);
   } else if (step === 'days'){
@@ -902,6 +905,7 @@ function createProfileWithSettings(name, d){
   resetAppData();
   APP.profile.name  = name;
   APP.profile.goal  = d.goal;
+  APP.profile.planWeeks = parseInt(d.weeks, 10) || 8;
   APP.profile.level = d.level;
   APP.profile.days  = d.days.length ? d.days : ['Wed','Fri','Sun'];
   APP.profile.units = d.units;
@@ -1007,7 +1011,17 @@ function sessionDistKm(sched, runPace) {
   return Math.round((warmCoolKm + runKm + walkKm) * 10) / 10;
 }
 
-function makePlan(goal, level, runDays) {
+function weekTitle(w, weeks, isRecovery, isTaper, isRace){
+  if (isRace)     return 'Race Week';
+  if (isTaper)    return 'Taper';
+  if (isRecovery) return 'Recovery';
+  if (w === 0)    return 'Getting Started';
+  const frac = weeks > 1 ? w / (weeks - 1) : 0;
+  if (frac < 0.34) return 'Building Rhythm';
+  if (frac < 0.67) return 'Building Endurance';
+  return 'Peak Training';
+}
+function makePlan(goal, level, runDays, planWeeks) {
   const goalConfig = {
     '5K':      { peak: 5.0,  weeks: 8,  startKm: 2.5 },
     '10K':     { peak: 10.0, weeks: 10, startKm: 4.0 },
@@ -1020,18 +1034,11 @@ function makePlan(goal, level, runDays) {
   const pace       = levelPace[level] || 9.5;
   const mult       = levelMult[level] || 1.0;
   const isBeginner = level === 'Beginner';
-  const weeks      = cfg.weeks;
+  const weeks      = Math.max(4, Math.min(16, planWeeks ? Math.round(planWeeks) : cfg.weeks));
   const startKm    = cfg.startKm * (isBeginner ? 1.0 : mult);
   const peakKm     = cfg.peak;
   const days       = Math.max(1, runDays.length);
   const plan       = [];
-
-  const wkNames = [
-    'Getting Started','Building Rhythm','Finding Your Legs','Consolidation',
-    'Building Endurance','Longer Efforts','First Continuous Runs','Race Week',
-    'Consolidation','Race Prep','Final Push','Race Week',
-    'Strength Base','Half Build','Taper','Race Week',
-  ];
 
   // Non-beginner run type rotation for variation
   // Pattern per day-slot in a 3-day week: [easy/intervals, tempo/easy, long]
@@ -1056,7 +1063,7 @@ function makePlan(goal, level, runDays) {
   ];
 
   for (let w = 0; w < weeks; w++) {
-    const isRecovery = [3,7,11].includes(w);
+    const isRecovery = (w % 4 === 3) && w > 0 && w < weeks - 2;
     const isRace     = w === weeks - 1;
     const isTaper    = w === weeks - 2;
 
@@ -1074,17 +1081,20 @@ function makePlan(goal, level, runDays) {
       if (isRace && d === days - 1) {
         type = 'race'; distKm = cfg.peak;
       } else if (isBeginner) {
-        const weekSessions = BEGINNER_WEEK_SESSIONS[Math.min(w, BEGINNER_WEEK_SESSIONS.length - 1)];
+        // Map this week onto the 8-week beginner curriculum proportionally, so a
+        // shorter plan ramps faster and a longer plan ramps more gradually.
+        const sessIdx = weeks <= 1 ? 0 : Math.round(w / (weeks - 1) * (BEGINNER_WEEK_SESSIONS.length - 1));
+        const weekSessions = BEGINNER_WEEK_SESSIONS[Math.min(sessIdx, BEGINNER_WEEK_SESSIONS.length - 1)];
         // Map day index to A/B/C — if fewer than 3 run days, pick evenly spaced variants
         const variantIdx = days === 1 ? 1 : days === 2 ? [0,2][d] : d;
         const sched = weekSessions[Math.min(variantIdx, weekSessions.length - 1)];
         sessionVariant = sched;
         distKm = sessionDistKm(sched, pace);
-        // Week 8 last run = race
-        type = (w === 7 && d === days - 1) ? 'race' : (sched.focus === 'Endurance' && w >= 5 ? 'long' : 'easy');
+        // Final week's last run = race
+        type = (w === weeks - 1 && d === days - 1) ? 'race' : (sched.focus === 'Endurance' && sessIdx >= 5 ? 'long' : 'easy');
       } else {
         // Non-beginner: vary by week pattern
-        const pattern = nonBeginnerVariants[Math.min(w, nonBeginnerVariants.length - 1)];
+        const pattern = nonBeginnerVariants[weeks <= 1 ? 0 : Math.round(w / (weeks - 1) * (nonBeginnerVariants.length - 1))];
         // Adjust pattern for days count
         const dayTypes = days === 1 ? ['long'] : days === 2 ? ['easy','long'] : pattern;
         type = dayTypes[Math.min(d, dayTypes.length - 1)];
@@ -1102,7 +1112,7 @@ function makePlan(goal, level, runDays) {
 
     plan.push({
       weekNum: w + 1,
-      title: wkNames[w] || `Week ${w+1}`,
+      title: weekTitle(w, weeks, isRecovery, isTaper, isRace),
       isRecovery, isRace, isTaper, runs,
     });
   }
@@ -1383,6 +1393,11 @@ function applyProfileToUI() {
   const goalEl = document.getElementById('profile-goal-el');
   if (srGoal) srGoal.textContent = p.goal || '5K';
   if (goalEl) goalEl.textContent = `${p.level || 'Beginner'} · ${p.goal || '5K'} Goal`;
+  // Plan length
+  const srWeeks = document.getElementById('sr-weeks');
+  if (srWeeks) srWeeks.textContent = (p.planWeeks || 8) + ' weeks';
+  const profWeeks = document.getElementById('profile-weeks');
+  if (profWeeks) profWeeks.textContent = (APP.plan && APP.plan.length) ? APP.plan.length : (p.planWeeks || 8);
   // Days
   const srDays = document.getElementById('sr-days');
   if (srDays) srDays.textContent = (p.days || []).join(', ') || 'None';
@@ -2447,6 +2462,14 @@ const EDITS = {
       document.getElementById('sr-goal').textContent=APP.profile.goal;
       document.getElementById('profile-goal-el').textContent=`${APP.profile.level} · ${APP.profile.goal} Goal`;
       rebuildPlan();save();}},
+  weeks:{title:'Plan Length',render:p=>`
+    <div class="edit-field"><div class="edit-label">How many weeks?</div>
+    ${[4,6,8,10,12,14,16].map(w=>`<button class="edit-option-block${(p.planWeeks||8)===w?' selected':''}" onclick="pick('planWeeks',${w},this)">${w} weeks</button>`).join('')}</div>`,
+    save:()=>{
+      rebuildPlan();
+      document.getElementById('sr-weeks').textContent=(APP.profile.planWeeks||8)+' weeks';
+      var pw=document.getElementById('profile-weeks'); if(pw) pw.textContent=APP.plan.length;
+      save();}},
   days:{title:'Run Days',render:p=>`
     <div class="edit-field"><div class="edit-label">Select your run days</div>
     <div class="edit-day-grid">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`
@@ -2574,7 +2597,7 @@ function removeAvatar() {
 }
 
 function rebuildPlan(){
-  APP.plan=makePlan(APP.profile.goal,APP.profile.level,APP.profile.days);
+  APP.plan=makePlan(APP.profile.goal,APP.profile.level,APP.profile.days,APP.profile.planWeeks);
   renderHome(); renderPlan();
 }
 function applyUnitsEverywhere(){
