@@ -279,6 +279,19 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .detail-map{margin:16px;border-radius:var(--radius);overflow:hidden;height:200px;background:var(--surface2);position:relative;}
 .pace-chart{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow:hidden;}
 .pace-chart-title{font-size:14px;font-weight:700;margin-bottom:12px;}
+.pc-readout{text-align:center;margin-bottom:14px;}
+.pc-sel-name{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
+.pc-sel-pace{font-size:30px;font-weight:800;color:var(--accent);margin-top:2px;letter-spacing:-0.5px;}
+.pc-sel-pace span{font-size:14px;color:var(--text2);font-weight:600;}
+.pc-sel-sub{font-size:12px;color:var(--text2);margin-top:4px;}
+.pc-bars{display:flex;align-items:flex-end;gap:4px;height:110px;flex:1;}
+.pc-chart-area{display:flex;gap:8px;align-items:stretch;}
+.pc-yaxis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;height:110px;font-size:10px;color:var(--text3);flex-shrink:0;}
+.pc-yaxis-lbl{color:var(--text2);font-weight:700;}
+.pc-bar-col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;background:none;border:none;padding:0;cursor:pointer;min-width:0;}
+.pc-bar{width:100%;border-radius:4px 4px 0 0;min-height:6px;opacity:0.7;transition:opacity 0.15s;}
+.pc-bar-col.selected .pc-bar{opacity:1;outline:2px solid var(--text);outline-offset:1px;}
+.pc-hint{font-size:11px;color:var(--text3);text-align:center;margin-top:8px;}
 .pace-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
 .pace-bar-label{font-size:11px;color:var(--text2);width:40px;flex-shrink:0;text-align:right;}
 .pace-bar-track{flex:1;height:24px;background:var(--surface2);border-radius:6px;overflow:hidden;position:relative;}
@@ -1352,6 +1365,11 @@ function fmtPace(secPerKm) {
   const m = Math.floor(secPerKm/60), s = Math.round(secPerKm%60);
   return `${m}:${s.toString().padStart(2,'0')}`;
 }
+function fmtTime(sec) {
+  sec = Math.round(sec || 0);
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${m}:${s.toString().padStart(2,'0')}`;
+}
 function getPaceZones() {
   const lv = APP.profile.level;
   const zones = {
@@ -1970,6 +1988,7 @@ function startRun(runOverride) {
   t.paused      = false;
   t.running     = true;
   t.lapDistances= new Array(t.phases.length).fill(0);
+  t.lapTimes    = new Array(t.phases.length).fill(0);
   t.gpsPositions= [];
   t.spokenMidLap= new Array(t.phases.length).fill(false);
   t.spokenCountdown = new Array(t.phases.length).fill(false);
@@ -2007,6 +2026,7 @@ function timerTick() {
   // Once GPS is locked, distance tracks actual physical movement — it stays put
   // when you stop and only grows when you really move. Anchor on the first fix so
   // it doesn't jump backward from the earlier estimate. No GPS yet → estimate.
+  const prevTotal = t.distKm;
   if (t.gpsActive && t.gpsPositions.length > 1) {
     const gpsDist = calcGPSDistance(t.gpsPositions);
     if (t.gpsOffset == null) t.gpsOffset = Math.max(0, t.distKm - gpsDist);
@@ -2014,11 +2034,14 @@ function timerTick() {
   } else {
     t.distKm += stepKm;
   }
+  const deltaKm = Math.max(0, t.distKm - prevTotal);
 
   t.phaseElapsed++;
   if (!cp) { updateTimerUI(); return; }
 
-  t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + stepKm;
+  // Track each lap's ACTUAL distance and time so per-lap pace is real, not averaged
+  t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + deltaKm;
+  t.lapTimes[t.phaseIndex] = (t.lapTimes[t.phaseIndex] || 0) + 1;
   const estSecs  = cp.estSecs;
   const secsLeft = estSecs - t.phaseElapsed;
 
@@ -2148,6 +2171,7 @@ function finishRun() {
   const distKm  = t.distKm;
   const gpsPos  = [...t.gpsPositions];
   const lapDists= [...t.lapDistances];
+  const lapTimesArr = [...(t.lapTimes || [])];
   const phases  = t.phases.map(p=>({...p}));
   // Announce then cleanup after a short delay so speech fires first
   speak('Run complete! Amazing work.', 'high');
@@ -2170,6 +2194,7 @@ function finishRun() {
     distKm, timeStr, paceSecPerKm,
     gpsPositions: gpsPos,
     lapDistances: lapDists,
+    lapTimes: lapTimesArr,
     phases,
     wi: cw ? cw.wi : null, ri: cw ? cw.ri : null,
   };
@@ -2354,37 +2379,75 @@ function renderDetailMap(log) {
   ctx.fillStyle='#FF6B6B'; ctx.fillText('● Finish', canvas.width-90, 28);
 }
 
-function renderPaceChart(log) {
-  const el=document.getElementById('detail-pace-chart');
-  const laps=log.phases||[];
-  const dists=log.lapDistances||[];
-  if(laps.length===0){el.innerHTML='';return;}
-  // Calculate pace per lap
-  const totalDist=log.distKm||0;
-  const totalSec=log.paceSecPerKm*totalDist;
-  let html=`<div class="pace-chart-title">Lap Analysis</div>`;
-  const maxPace=600; // 10 min/km as max bar
-  laps.forEach((lap,i)=>{
-    const lapDist=dists[i]||lap.distKm||0;
-    // Estimate lap pace proportionally
-    const lapSec=totalDist>0?(lapDist/totalDist)*totalSec:0;
-    const lapPace=lapDist>0?lapSec/lapDist:0;
-    const pct=Math.min(100,(lapPace/maxPace)*100)||20;
-    const colors={
-      'lap-green':'var(--accent)','lap-purple':'var(--accent2)',
-      'lap-orange':'#FF9B50','lap-red':'var(--warn)',
-    };
-    const color=colors[lap.color]||'var(--accent)';
-    html+=`<div class="pace-bar-row">
-      <div class="pace-bar-label">${(lap.label||lap.name||'').split(' ')[0].slice(0,6)}</div>
-      <div class="pace-bar-track">
-        <div class="pace-bar-fill" style="width:${pct}%;background:${color};">
-          <span class="pace-bar-val">${lapPace>0?fmtPace(lapPace):fmtShort(lapDist)}</span>
-        </div>
-      </div>
-    </div>`;
+// Build the per-lap pace data for a run using its ACTUAL time & distance.
+// (Old logs without lapTimes fall back to the planned pace.)
+function buildLapPaceData(log){
+  const phases = log.phases || [];
+  const dists  = log.lapDistances || [];
+  const times  = log.lapTimes || [];
+  const laps = [];
+  phases.forEach((ph, i) => {
+    const dist = dists[i] != null ? dists[i] : (ph.distKm || 0);
+    if (dist <= 0.005) return;                       // skip 0-distance laps (focus cues)
+    const timeSec = times[i] != null ? times[i] : 0;
+    let paceSec;
+    if (timeSec > 0 && dist > 0) paceSec = timeSec / dist;   // real pace = real time / real distance
+    else if (ph.pace) paceSec = ph.pace;                     // fallback: planned pace
+    else paceSec = log.paceSecPerKm || 0;                    // last resort: overall avg
+    laps.push({ name: ph.label || ph.name || ('Lap ' + (i+1)), color: ph.color || 'lap-green', paceSec, dist, timeSec });
   });
-  el.innerHTML=html;
+  return laps;
+}
+
+let DETAIL_LAPS = null;
+
+function renderPaceChart(log) {
+  const laps = buildLapPaceData(log);
+  const el = document.getElementById('detail-pace-chart');
+  if (!laps.length) { el.innerHTML = ''; DETAIL_LAPS = null; return; }
+  DETAIL_LAPS = { laps, avgPaceSec: log.paceSecPerKm || 0, distKm: log.distKm || 0, timeStr: log.timeStr || '' };
+  drawPaceChart(-1);   // -1 = show overall average
+}
+
+function drawPaceChart(sel) {
+  const D = DETAIL_LAPS;
+  if (!D) return;
+  const laps = D.laps;
+  const maxTime = Math.max.apply(null, laps.map(l => l.timeSec || 0).concat(0.0001));
+
+  let readout;
+  if (sel >= 0 && laps[sel]) {
+    const l = laps[sel];
+    const diff = l.paceSec - D.avgPaceSec;
+    let cmp = '';
+    if (D.avgPaceSec > 0 && l.paceSec > 0) {
+      cmp = Math.abs(diff) < 3 ? 'on pace' : (diff < 0 ? fmtPace(-diff) + ' faster than avg' : fmtPace(diff) + ' slower than avg');
+    }
+    readout = `<div class="pc-sel-name">${escapeHtml(l.name)}</div>
+      <div class="pc-sel-pace">${l.paceSec > 0 ? fmtPace(l.paceSec) : '—'} <span>${paceLabel()}</span></div>
+      <div class="pc-sel-sub">${fmtShort(l.dist)} · ${fmtTime(l.timeSec)}${cmp ? ' · ' + cmp : ''}</div>`;
+  } else {
+    readout = `<div class="pc-sel-name">Average pace</div>
+      <div class="pc-sel-pace">${D.avgPaceSec > 0 ? fmtPace(D.avgPaceSec) : '—'} <span>${paceLabel()}</span></div>
+      <div class="pc-sel-sub">${fmtShort(D.distKm)} · ${D.timeStr} · tap a bar for each lap</div>`;
+  }
+
+  let bars = '';
+  laps.forEach((l, i) => {
+    const h = Math.max(8, Math.round((l.timeSec || 0) / maxTime * 100));
+    bars += `<button class="pc-bar-col${i === sel ? ' selected' : ''}" onclick="drawPaceChart(${i})" aria-label="${escapeHtml(l.name)}">
+        <div class="pc-bar ${l.color}" style="height:${h}%"></div>
+      </button>`;
+  });
+
+  document.getElementById('detail-pace-chart').innerHTML =
+    `<div class="pace-chart-title">Pace Analysis</div>
+     <div class="pc-readout">${readout}</div>
+     <div class="pc-chart-area">
+       <div class="pc-yaxis"><span>${fmtTime(maxTime)}</span><span class="pc-yaxis-lbl">time</span><span>0:00</span></div>
+       <div class="pc-bars">${bars}</div>
+     </div>
+     <div class="pc-hint">Taller bar = longer lap · tap for pace</div>`;
 }
 
 function renderDetailLaps(log) {
@@ -2392,14 +2455,17 @@ function renderDetailLaps(log) {
   const laps=log.phases||[];
   const dists=log.lapDistances||[];
   if(laps.length===0){el.innerHTML='';return;}
-  const colors={'lap-green':'lap-green','lap-purple':'lap-purple','lap-orange':'lap-orange'};
+  const times=log.lapTimes||[];
   let html='';
   laps.forEach((lap,i)=>{
-    const dist=dists[i]||lap.distKm||0;
+    const dist=dists[i] != null ? dists[i] : (lap.distKm||0);
+    const timeSec=times[i]||0;
+    let paceSec = (timeSec>0 && dist>0) ? timeSec/dist : (lap.pace||0);
+    const paceStr = (dist>0 && paceSec>0) ? `${fmtPace(paceSec)} ${paceLabel()}` : '—';
     html+=`<div class="lap-item">
       <div class="lap-num">${i+1}</div>
       <div class="lap-bar ${lap.color||'lap-green'}"></div>
-      <div class="lap-info"><div class="lap-name">${lap.label||lap.name||'Lap'}</div><div class="lap-detail">${fmtShort(dist)} completed</div></div>
+      <div class="lap-info"><div class="lap-name">${lap.label||lap.name||'Lap'}</div><div class="lap-detail">${paceStr}</div></div>
       <div class="lap-dist">${fmtShort(dist)}</div>
     </div>`;
   });
