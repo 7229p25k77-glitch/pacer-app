@@ -2680,6 +2680,17 @@ window.addEventListener('beforeunload',()=>{
   if(APP.timer.interval)clearInterval(APP.timer.interval);
   stopGPS();
 });
+
+// ════════════════════════════════════════
+// OFFLINE SUPPORT
+// Register the service worker so the app opens & runs with no connection
+// (after the first online load, which installs it).
+// ════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
