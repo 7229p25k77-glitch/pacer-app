@@ -182,6 +182,15 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .stat-lbl{font-size:11px;color:var(--text2);margin-top:3px;}
 .accent-val{color:var(--accent);}
 
+.log-start-row{display:flex;gap:10px;padding:0 16px 14px;}
+.log-start-btn{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;color:var(--text);text-align:center;}
+.log-start-btn:active{background:var(--surface2);}
+.log-start-btn.primary{background:var(--accent-dim);border-color:var(--accent);}
+.log-start-btn.primary .lsb-label{color:var(--accent);}
+.lsb-emoji{font-size:22px;line-height:1;}
+.lsb-label{font-size:14px;font-weight:700;}
+.lsb-sub{font-size:11px;color:var(--text2);line-height:1.3;}
+
 .log-entry-wrap{position:relative;margin:0 16px 12px;border-radius:var(--radius);overflow:hidden;}
 .log-delete-bg{position:absolute;right:0;top:0;bottom:0;background:var(--warn);display:flex;align-items:center;justify-content:center;width:80px;border-radius:var(--radius);color:white;font-size:13px;font-weight:700;flex-direction:column;gap:4px;}
 .log-entry{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:flex;gap:14px;align-items:flex-start;transition:transform 0.2s ease;will-change:transform;cursor:pointer;}
@@ -406,6 +415,18 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
   </div>
   <div class="scroll-area">
     <div style="height:8px;"></div>
+    <div class="log-start-row">
+      <button class="log-start-btn primary" onclick="quickStartNextRun()">
+        <span class="lsb-emoji">▶️</span>
+        <span class="lsb-label">Start Next Run</span>
+        <span class="lsb-sub" id="log-next-sub">Your next plan run</span>
+      </button>
+      <button class="log-start-btn" onclick="startFreeRun()">
+        <span class="lsb-emoji">🎽</span>
+        <span class="lsb-label">Free Run</span>
+        <span class="lsb-sub">Unguided · just log it</span>
+      </button>
+    </div>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-val accent-val" id="log-count">0</div><div class="stat-lbl">Runs</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="log-km">0</div><div class="stat-lbl" id="log-km-lbl">km total</div></div>
@@ -1877,10 +1898,11 @@ function midLapEncouragement(lap, lapNum) {
   return null;
 }
 
-function startRun() {
+function startRun(runOverride) {
   const cw = APP.currentWorkout;
-  if (!cw) return;
-  const run = APP.plan[cw.wi].runs[cw.ri];
+  let run;
+  if (runOverride) { run = runOverride; APP.freeRun = true; }   // free run (no plan)
+  else { if (!cw) return; run = APP.plan[cw.wi].runs[cw.ri]; APP.freeRun = false; }
   const t = APP.timer;
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
 
@@ -1990,9 +2012,9 @@ function updateTimerUI() {
   document.getElementById('timer-dist').textContent = fmt(t.distKm).replace(' ','');
   const phase = t.phases[t.phaseIndex];
   document.getElementById('timer-phase').textContent = phase?phase.label.slice(0,30):'COMPLETE';
-  document.getElementById('timer-seg-label').textContent = `Lap ${t.phaseIndex+1} of ${t.phases.length}`;
+  document.getElementById('timer-seg-label').textContent = APP.freeRun ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`;
   const totalDist = t.phases.reduce((a,p)=>a+p.distKm,0);
-  document.getElementById('phase-bar').style.width = Math.min(100,(t.distKm/totalDist)*100)+'%';
+  document.getElementById('phase-bar').style.width = (totalDist>0 ? Math.min(100,(t.distKm/totalDist)*100) : 0)+'%';
   if (t.elapsed>0 && t.distKm>0) {
     const spk = t.elapsed/t.distKm;
     document.getElementById('timer-pace').textContent = fmtPace(spk)+' avg pace';
@@ -2084,12 +2106,13 @@ function finishRun() {
   if (elapsed > 0 && distKm > 0) paceSecPerKm = elapsed / distKm;
   const now = new Date();
   const run = cw ? APP.plan[cw.wi].runs[cw.ri] : null;
+  const isFree = !!APP.freeRun;
   const logEntry = {
     id: Date.now(), day: now.getDate(),
     month: now.toLocaleString('default',{month:'short'}).toUpperCase(),
     fullDate: now.toISOString(),
-    type: run ? run.type : 'easy',
-    name: run ? (document.getElementById('wo-title').textContent) : 'Run',
+    type: isFree ? 'free' : (run ? run.type : 'easy'),
+    name: isFree ? 'Free Run' : (run ? (document.getElementById('wo-title').textContent) : 'Run'),
     distKm, timeStr, paceSecPerKm,
     gpsPositions: gpsPos,
     lapDistances: lapDists,
@@ -2112,6 +2135,25 @@ function dismissComplete() {
   showScreen('home-screen');
 }
 
+// Quick-start the next scheduled plan run (guided), straight from the Log page
+function quickStartNextRun(){
+  const next = getNextRun();
+  if (!next){
+    showModal("You're all done! 🎉", "You've completed every run in your plan — try a Free Run instead.", 'OK', null);
+    return;
+  }
+  const wk = APP.plan[next.w], run = wk.runs[next.r];
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day 🏁'};
+  APP.currentWorkout = { wi: next.w, ri: next.r };
+  document.getElementById('wo-title').textContent = `${typeLabels[run.type]||'Run'} — Week ${wk.weekNum}`;
+  startRun();
+}
+// Start an unguided free run that just logs time, distance & pace
+function startFreeRun(){
+  APP.currentWorkout = null;
+  startRun({ type:'free', distKm:0, laps:[{ name:'Free Run', color:'lap-green', detail:'Run at your own pace', distKm:0 }] });
+}
+
 // ════════════════════════════════════════
 // LOG SCREEN
 // ════════════════════════════════════════
@@ -2130,6 +2172,16 @@ function updateLogScreen() {
   document.getElementById('log-min').textContent=Math.floor(totalMin);
   const pd=document.getElementById('profile-runs-done');
   if(pd) pd.textContent=logs.length;
+  // "Start Next Run" button subtitle
+  const nextSub=document.getElementById('log-next-sub');
+  if(nextSub){
+    const next=getNextRun();
+    if(next){
+      const wk=APP.plan[next.w], run=wk.runs[next.r];
+      const tl={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day'};
+      nextSub.textContent=`Week ${wk.weekNum} · ${tl[run.type]||'Run'}`;
+    } else { nextSub.textContent='Plan complete 🎉'; }
+  }
   if(logs.length===0){empty.style.display='flex';entries.innerHTML='';return;}
   empty.style.display='none';
   entries.innerHTML=logs.map(l=>`
@@ -2140,7 +2192,7 @@ function updateLogScreen() {
         onclick="openRunDetail(${l.id})">
         <div class="log-date-block"><div class="log-day">${l.day}</div><div class="log-mon">${l.month}</div></div>
         <div class="log-details">
-          <div class="log-type">${l.type?l.type.toUpperCase():''} · W${(l.wi!=null?l.wi+1:'?')}</div>
+          <div class="log-type">${l.type?l.type.toUpperCase():''}${l.wi!=null?' · W'+(l.wi+1):''}</div>
           <div class="log-name">${l.name||'Run'}</div>
           <div class="log-stats">
             <div><div class="log-stat-val">${fmtShort(l.distKm||0)}</div><div class="log-stat-lbl">Distance</div></div>
@@ -2197,7 +2249,7 @@ function deleteRun(id){
 function openRunDetail(id) {
   const log=APP.logs.find(l=>l.id===id);
   if(!log)return;
-  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day'};
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run'};
   document.getElementById('detail-type').textContent=typeLabels[log.type]||'Run';
   document.getElementById('detail-title').textContent=log.name||'Run';
   document.getElementById('detail-meta').innerHTML=`
