@@ -395,6 +395,13 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .hl-save-btn{width:100%;margin-top:14px;padding:14px;background:var(--accent);color:var(--ink);font-size:15px;font-weight:800;border:none;border-radius:var(--radius-sm);cursor:pointer;}
 .hl-save-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
 .hl-saved-note{text-align:center;font-size:12.5px;color:var(--text2);margin-top:10px;}
+/* recovery / cross-training picker */
+.rec-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:4px;}
+.rec-act{display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 6px;cursor:pointer;transition:.15s;}
+.rec-act:active{background:var(--accent-dim);border-color:var(--accent);}
+.rec-act-icon{font-size:26px;line-height:1;}
+.rec-act-name{font-size:12px;font-weight:700;text-align:center;line-height:1.15;color:var(--text);}
+.rec-act-sub{font-size:9.5px;font-weight:700;letter-spacing:0.3px;color:var(--text3);text-transform:uppercase;}
 /* recent check-ins strip */
 .recent-strip{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
 .recent-pip{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
@@ -763,9 +770,9 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 
 <!-- COMPLETE -->
 <div id="complete-overlay">
-  <div class="complete-icon">🎉</div>
-  <div class="complete-title">Run Complete!</div>
-  <div class="complete-sub">Great work — you're building real fitness.</div>
+  <div class="complete-icon" id="complete-icon">🎉</div>
+  <div class="complete-title" id="complete-title">Run Complete!</div>
+  <div class="complete-sub" id="complete-sub">Great work — you're building real fitness.</div>
   <div class="complete-stats">
     <div class="complete-stat"><div class="complete-stat-val" id="cs-dist">0.00</div><div class="complete-stat-lbl" id="cs-dist-lbl">km</div></div>
     <div class="complete-stat"><div class="complete-stat-val" id="cs-time">0:00</div><div class="complete-stat-lbl">time</div></div>
@@ -788,12 +795,12 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="workout-meta" id="an-meta"></div>
   </div>
   <div class="analytics-scroll">
-    <div class="an-section-title">How did this run feel?</div>
+    <div class="an-section-title" id="an-feel-title">How did this run feel?</div>
     <div class="an-card" id="an-feel"></div>
-    <div class="an-section-title">Your route</div>
+    <div class="an-section-title" id="an-route-title">Your route</div>
     <div class="detail-map" id="an-map"></div>
     <div class="pace-chart" id="an-pace-chart"></div>
-    <div class="an-section-title">Vs your last run</div>
+    <div class="an-section-title" id="an-compare-title">Vs your last run</div>
     <div class="an-card" id="an-compare"></div>
     <div class="an-section-title">Achievements</div>
     <div class="an-card" id="an-achievements"></div>
@@ -1485,6 +1492,7 @@ const APP = {
   currentScreen: 'home-screen',
   prevScreen: 'home-screen',
   currentWorkout: null, // {weekIndex, runIndex}
+  recovery: null,       // active recovery/cross-training session meta (or null)
   timer: {
     interval: null, elapsed: 0, paused: false,
     distKm: 0, phaseIndex: 0, phaseElapsed: 0,
@@ -2114,9 +2122,13 @@ function midLapEncouragement(lap, lapNum) {
 function startRun(runOverride) {
   const cw = APP.currentWorkout;
   let run;
-  if (runOverride) { run = runOverride; APP.freeRun = true; }   // free run (no plan)
+  if (runOverride) { run = runOverride; APP.freeRun = true; }   // free run / recovery (no plan)
   else { if (!cw) return; run = APP.plan[cw.wi].runs[cw.ri]; APP.freeRun = false; }
+  const isRecovery = !!(runOverride && runOverride.recovery);
+  if (!isRecovery) APP.recovery = null;                    // plan/free runs aren't recovery
+  const wantGPS = runOverride ? (runOverride.gps !== false) : true;
   const t = APP.timer;
+  t.noDistance = isRecovery && !wantGPS;                   // indoor recovery = pure stopwatch
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
 
   // Build phases from laps. Each phase carries a suggested pace (sec/km) that
@@ -2161,7 +2173,7 @@ function startRun(runOverride) {
   }, 800);
 
   updateTimerUI();
-  startGPS();
+  if (wantGPS) startGPS();
   t.interval = setInterval(timerTick, 1000);
 }
 
@@ -2174,7 +2186,7 @@ function timerTick() {
   // How far we add each second when estimating — based on the current phase's
   // suggested pace, so the displayed pace matches the home-page pace zones.
   const cp = t.phases[t.phaseIndex];
-  const stepKm = (cp && cp.pace) ? (1 / cp.pace) : 0.00145;
+  const stepKm = t.noDistance ? 0 : ((cp && cp.pace) ? (1 / cp.pace) : 0.00145);
 
   // Once GPS is locked, distance tracks actual physical movement — it stays put
   // when you stop and only grows when you really move. Anchor on the first fix so
@@ -2239,10 +2251,10 @@ function updateTimerUI() {
   const t = APP.timer;
   const m=Math.floor(t.elapsed/60), s=t.elapsed%60;
   document.getElementById('timer-display').textContent = `${m}:${s.toString().padStart(2,'0')}`;
-  document.getElementById('timer-dist').textContent = fmt(t.distKm).replace(' ','');
+  document.getElementById('timer-dist').textContent = t.noDistance ? '—' : fmt(t.distKm).replace(' ','');
   const phase = t.phases[t.phaseIndex];
   document.getElementById('timer-phase').textContent = phase?phase.label.slice(0,30):'COMPLETE';
-  document.getElementById('timer-seg-label').textContent = APP.freeRun ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`;
+  document.getElementById('timer-seg-label').textContent = APP.recovery ? 'Recovery session — tap Finish when done' : (APP.freeRun ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`);
   const totalDist = t.phases.reduce((a,p)=>a+p.distKm,0);
   document.getElementById('phase-bar').style.width = (totalDist>0 ? Math.min(100,(t.distKm/totalDist)*100) : 0)+'%';
   if (t.elapsed>0 && t.distKm>0) {
@@ -2294,6 +2306,9 @@ function stopRunCleanup() {
   SPEECH.speaking = false;
   t.running = false;
   t.paused  = false;
+  t.noDistance = false;
+  APP.recovery = null;
+  APP.freeRun = false;
 }
 // When you tap the exit (✕ or ■) mid-run, offer a clear choice:
 // save your progress, discard the run, or keep going.
@@ -2326,8 +2341,9 @@ function finishRun() {
   const lapDists= [...t.lapDistances];
   const lapTimesArr = [...(t.lapTimes || [])];
   const phases  = t.phases.map(p=>({...p}));
+  const rec = APP.recovery;   // recovery/cross-training meta (or null)
   // Announce then cleanup after a short delay so speech fires first
-  speak('Run complete! Amazing work.', 'high');
+  speak(rec ? 'Session complete! Nice recovery work.' : 'Run complete! Amazing work.', 'high');
   setTimeout(() => stopRunCleanup(), 1500);
   document.getElementById('run-timer').classList.remove('visible');
 
@@ -2342,8 +2358,10 @@ function finishRun() {
     id: Date.now(), day: now.getDate(),
     month: now.toLocaleString('default',{month:'short'}).toUpperCase(),
     fullDate: now.toISOString(),
-    type: isFree ? 'free' : (run ? run.type : 'easy'),
-    name: isFree ? 'Free Run' : (run ? (document.getElementById('wo-title').textContent) : 'Run'),
+    type: rec ? 'recovery' : (isFree ? 'free' : (run ? run.type : 'easy')),
+    name: rec ? rec.name : (isFree ? 'Free Run' : (run ? (document.getElementById('wo-title').textContent) : 'Run')),
+    activity: rec ? rec.id : null,   // recovery activity id (walk/cycle/swim/…)
+    icon: rec ? rec.icon : null,
     distKm, timeStr, paceSecPerKm,
     durSec: elapsed,
     feel: null,                    // runner's effort/strain rating (1-5), set in analytics
@@ -2363,6 +2381,9 @@ function finishRun() {
   document.getElementById('cs-time').textContent = timeStr;
   document.getElementById('cs-pace').textContent = paceSecPerKm > 0 ? fmtPace(paceSecPerKm) : '—';
   document.getElementById('cs-pace-lbl').textContent = paceLabel() + ' pace';
+  document.getElementById('complete-icon').textContent = rec ? rec.icon : '🎉';
+  document.getElementById('complete-title').textContent = rec ? 'Session Complete!' : 'Run Complete!';
+  document.getElementById('complete-sub').textContent = rec ? 'Nice recovery work — lower impact still counts.' : 'Great work — you\'re building real fitness.';
   document.getElementById('complete-overlay').classList.add('visible');
 }
 function dismissComplete() {
@@ -2401,15 +2422,24 @@ function openRunAnalytics(id){
   const log = APP.logs.find(l=>l.id===id);
   if(!log) return;
   ANALYTICS_LOG_ID = id;
-  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run'};
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run',recovery:'Recovery'};
   document.getElementById('an-type').textContent = typeLabels[log.type]||'Run';
   document.getElementById('an-title').textContent = log.name||'Run';
+  const rec=isRecovery(log), noun=logNoun(log);
+  const hasRoute=(log.gpsPositions||[]).length>=2;
   document.getElementById('an-meta').innerHTML = `
-    <div class="wm-item"><div class="wm-val">${fmtShort(log.distKm||0)}</div><div class="wm-lbl">Distance</div></div>
+    <div class="wm-item"><div class="wm-val">${rec&&!hasRoute?'—':fmtShort(log.distKm||0)}</div><div class="wm-lbl">Distance</div></div>
     <div class="wm-item"><div class="wm-val">${log.timeStr||'—'}</div><div class="wm-lbl">Time</div></div>
     <div class="wm-item"><div class="wm-val">${log.paceSecPerKm>0?fmtPace(log.paceSecPerKm):'—'}</div><div class="wm-lbl">${paceLabel()}</div></div>`;
+  // Adapt section titles for runs vs recovery sessions
+  document.getElementById('an-feel-title').textContent = `How did this ${rec?'session':'run'} feel?`;
+  document.getElementById('an-compare-title').textContent = `Vs your last ${noun}`;
+  // Hide the route section for indoor recovery (no GPS) so there's no empty map
+  const showRoute = hasRoute || !rec;
+  document.getElementById('an-route-title').style.display = showRoute ? '' : 'none';
+  document.getElementById('an-map').style.display = showRoute ? '' : 'none';
   renderFeel(log);
-  renderDetailMap(log, 'an-map');
+  if(showRoute) renderDetailMap(log, 'an-map');
   renderPaceChart(log, 'an-pace-chart');
   renderRunComparison(log);
   renderAchievements(log);
@@ -2451,10 +2481,23 @@ function setFeel(v){
   renderFeel(log);
 }
 
-// Newest run that happened before this one — same type if possible, else any.
+// Is this log a recovery/cross-training session (vs a run)?
+function isRecovery(log){ return log.type==='recovery'; }
+// Noun for messaging: runs say "run"; recovery uses the activity's noun.
+function logNoun(log){
+  if(!isRecovery(log)) return 'run';
+  const a=(typeof RECOVERY_ACTIVITIES!=='undefined') && RECOVERY_ACTIVITIES.find(x=>x.id===log.activity);
+  return (a && a.noun) || 'session';
+}
+
+// Newest comparable session before this one. Runs match by run type; recovery
+// prefers the same activity (ride vs ride), then any recovery, then anything.
 function findPrevRun(log){
   const t = log.fullDate || '';
   const older = APP.logs.filter(l=>l!==log && (l.fullDate||'') < t); // APP.logs is newest-first
+  if(isRecovery(log)){
+    return older.find(l=>isRecovery(l)&&l.activity===log.activity) || older.find(isRecovery) || older[0] || null;
+  }
   return older.find(l=>l.type===log.type) || older[0] || null;
 }
 
@@ -2472,46 +2515,52 @@ function cmpRow(label, valStr, delta, kind){
 function renderRunComparison(log){
   const el=document.getElementById('an-compare');
   const prev=findPrevRun(log);
+  const noun=logNoun(log);
   if(!prev){
-    el.innerHTML=`<div class="cmp-empty">This is your first logged run — finish another to see how you're progressing. 🎉</div>`;
+    el.innerHTML=`<div class="cmp-empty">This is your first logged ${noun} — finish another to see how you're progressing. 🎉</div>`;
     return;
   }
-  const rows=[ cmpRow('Distance', fmtShort(log.distKm||0), (log.distKm||0)-(prev.distKm||0), 'dist') ];
+  const rows=[];
+  if((log.distKm||0)>0 || (prev.distKm||0)>0)
+    rows.push(cmpRow('Distance', fmtShort(log.distKm||0), (log.distKm||0)-(prev.distKm||0), 'dist'));
   if(log.paceSecPerKm>0 && prev.paceSecPerKm>0)
     rows.push(cmpRow('Avg pace', fmtPace(log.paceSecPerKm)+' '+paceLabel(), log.paceSecPerKm-prev.paceSecPerKm, 'pace'));
   rows.push(cmpRow('Time', log.timeStr||'—', logDurSec(log)-logDurSec(prev), 'time'));
-  const when = prev.fullDate ? new Date(prev.fullDate).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : 'last run';
-  el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">vs ${escapeHtml(prev.name||'your last run')} · ${when}</div>` + rows.join('');
+  const when = prev.fullDate ? new Date(prev.fullDate).toLocaleDateString(undefined,{month:'short',day:'numeric'}) : 'last time';
+  el.innerHTML = `<div style="font-size:12px;color:var(--text2);margin-bottom:8px;">vs ${escapeHtml(prev.name||'your last '+noun)} · ${when}</div>` + rows.join('');
 }
 
 function renderAchievements(log){
   const el=document.getElementById('an-achievements');
-  const all=APP.logs.slice();
-  const before = all.filter(l=>l!==log && (l.fullDate||'') < (log.fullDate||''));
+  const rec=isRecovery(log), noun=logNoun(log);
+  // Keep runs and recovery sessions in separate "leagues" so a bike ride can't
+  // claim a running PB and vice-versa.
+  const group=APP.logs.filter(l=>isRecovery(l)===rec);
+  const before=group.filter(l=>l!==log && (l.fullDate||'') < (log.fullDate||''));
   const badges=[];
   if(before.length===0){
-    badges.push(['🌟','First run logged!','Every journey starts with one step.']);
+    badges.push(['🌟',`First ${noun} logged!`,'Every journey starts with one step.']);
   }
   const maxDistBefore = Math.max(0, ...before.map(l=>l.distKm||0));
   if(before.length>0 && (log.distKm||0) > maxDistBefore){
-    badges.push(['🏅','New longest run!',`${fmtShort(log.distKm||0)} — your farthest yet.`]);
+    badges.push(['🏅',`New longest ${noun}!`,`${fmtShort(log.distKm||0)} — your farthest yet.`]);
   }
   const pacesBefore = before.map(l=>l.paceSecPerKm).filter(p=>p>0);
   if(log.paceSecPerKm>0 && pacesBefore.length>0 && log.paceSecPerKm < Math.min(...pacesBefore)){
     badges.push(['⚡','Fastest pace yet!',`${fmtPace(log.paceSecPerKm)} ${paceLabel()} average.`]);
   }
-  const totalNow = all.reduce((s,l)=>s+(l.distKm||0),0);
+  const totalNow = group.reduce((s,l)=>s+(l.distKm||0),0);
   const totalBefore = totalNow - (log.distKm||0);
   const crossed = [5,10,25,50,100,150,200,250,500].find(m=>totalBefore < m && totalNow >= m);
   if(crossed){
-    badges.push(['🎯',`${crossed} km milestone!`,`You've now logged ${fmtShort(totalNow)} total with Pacer.`]);
+    badges.push(['🎯',`${crossed} km milestone!`,`You've now logged ${fmtShort(totalNow)} of ${rec?'recovery':'running'} with Pacer.`]);
   }
   const maxDurBefore = Math.max(0, ...before.map(l=>logDurSec(l)));
   if(before.length>0 && logDurSec(log)>0 && logDurSec(log) > maxDurBefore){
-    badges.push(['⏱️','Longest time on feet!',`${log.timeStr} of running.`]);
+    badges.push(['⏱️', rec?`Longest ${noun} yet!`:'Longest time on feet!', `${log.timeStr} total.`]);
   }
   if(badges.length===0){
-    el.innerHTML=`<div class="cmp-empty">No new records this run — but consistency is what builds fitness. Keep stacking up the miles! 💪</div>`;
+    el.innerHTML=`<div class="cmp-empty">No new records this time — but consistency is what builds fitness. Keep it up! 💪</div>`;
     return;
   }
   el.innerHTML = badges.map(b=>`<div class="ach-badge"><span class="ach-emoji">${b[0]}</span><div><div class="ach-text">${b[1]}</div><div class="ach-sub">${b[2]}</div></div></div>`).join('');
@@ -2624,6 +2673,40 @@ const INJURIES = [
     redflag:'the outer knee swells or the pain stays severe despite rest and reduced mileage.' },
 ];
 
+// Low-impact / cross-training activities loggable from the Health tab.
+// gps:true → outdoor, uses GPS (distance, pace, route map). gps:false → indoor stopwatch.
+const RECOVERY_ACTIVITIES = [
+  { id:'walk',      display:'Walk',                    name:'Recovery Walk',  icon:'🚶', gps:true,  noun:'walk' },
+  { id:'treadmill', display:'Treadmill',               name:'Treadmill Walk', icon:'🏃', gps:false, noun:'walk' },
+  { id:'cycle',     display:'Cycle',                   name:'Recovery Ride',  icon:'🚴', gps:true,  noun:'ride' },
+  { id:'swim',      display:'Swim',                    name:'Recovery Swim',  icon:'🏊', gps:false, noun:'swim' },
+  { id:'cross',     display:'Elliptical / Row / Other', name:'Cross-training', icon:'💪', gps:false, noun:'session' },
+];
+function startRecovery(id){
+  const act = RECOVERY_ACTIVITIES.find(a=>a.id===id);
+  if(!act) return;
+  APP.currentWorkout = null;
+  APP.recovery = act;
+  startRun({ type:'recovery', recovery:true, gps:act.gps, distKm:0,
+    laps:[{ name:act.name, color:'lap-green', distKm:0,
+      detail: act.gps ? 'Easy effort — keep it low-impact. Tap Finish when done.'
+                      : 'Stopwatch running — tap Finish when you’re done.' }] });
+}
+function renderRecoveryCard(){
+  const btns = RECOVERY_ACTIVITIES.map(a=>`
+    <button class="rec-act" onclick="startRecovery('${a.id}')">
+      <span class="rec-act-icon">${a.icon}</span>
+      <span class="rec-act-name">${a.display}</span>
+      <span class="rec-act-sub">${a.gps?'GPS':'Timer'}</span>
+    </button>`).join('');
+  return `<div class="hl-sec-title">Recovery &amp; cross-training</div>
+    <div class="hl-card">
+      <div class="hl-card-title">Log a recovery session</div>
+      <div class="hl-card-sub">Can’t run, or want a lower-impact day? Cross-training keeps your fitness up while your body recovers — and you get the same post-session analytics, including the effort review.</div>
+      <div class="rec-grid">${btns}</div>
+    </div>`;
+}
+
 let checkinDraft = null;  // in-progress (unsaved) check-in for today
 
 function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; } // LOCAL date, not UTC
@@ -2654,7 +2737,7 @@ function renderHealth(){
   if(!el) return;
   if(!checkinDraft) loadCheckinDraft();
   const keepScroll = el.scrollTop;
-  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinCard() + renderRecentCheckins() + renderInjurySection();
+  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinCard() + renderRecoveryCard() + renderRecentCheckins() + renderInjurySection();
   el.scrollTop = keepScroll;   // taps re-render; don't jump back to the top
 }
 
@@ -2834,7 +2917,7 @@ function updateLogScreen() {
           <div class="log-type">${l.type?l.type.toUpperCase():''}${l.wi!=null?' · W'+(l.wi+1):''}</div>
           <div class="log-name">${l.name||'Run'}</div>
           <div class="log-stats">
-            <div><div class="log-stat-val">${fmtShort(l.distKm||0)}</div><div class="log-stat-lbl">Distance</div></div>
+            <div><div class="log-stat-val">${(l.distKm||0)>0?fmtShort(l.distKm):'—'}</div><div class="log-stat-lbl">Distance</div></div>
             <div><div class="log-stat-val">${l.timeStr||'—'}</div><div class="log-stat-lbl">Time</div></div>
             <div><div class="log-stat-val">${l.paceSecPerKm>0?fmtPace(l.paceSecPerKm):'—'}</div><div class="log-stat-lbl">Pace</div></div>
           </div>
@@ -2888,7 +2971,7 @@ function deleteRun(id){
 function openRunDetail(id) {
   const log=APP.logs.find(l=>l.id===id);
   if(!log)return;
-  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run'};
+  const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day',free:'Free Run',recovery:'Recovery'};
   document.getElementById('detail-type').textContent=typeLabels[log.type]||'Run';
   document.getElementById('detail-title').textContent=log.name||'Run';
   document.getElementById('detail-meta').innerHTML=`
@@ -3030,7 +3113,8 @@ function renderPaceChart(log, elId) {
   elId = elId || 'detail-pace-chart';
   const laps = buildLapPaceData(log);
   const el = document.getElementById(elId);
-  if (!laps.length) { el.innerHTML = ''; DETAIL_LAPS = null; return; }
+  if (!laps.length) { el.innerHTML = ''; el.style.display='none'; DETAIL_LAPS = null; return; }
+  el.style.display='';
   DETAIL_LAPS = { laps, avgPaceSec: log.paceSecPerKm || 0, distKm: log.distKm || 0, timeStr: log.timeStr || '', elId };
   drawPaceChart(-1);   // -1 = show overall average
 }

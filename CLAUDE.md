@@ -69,7 +69,14 @@ session is productive immediately.
   drawn street backdrop — no map tiles, stays offline.
 - **Post-run analytics:** the "Run Complete" celebration has a *View Analytics* button →
   `openRunAnalytics(LAST_RUN_ID)` overlay: effort/strain review (saved as `log.feel`),
-  route map, pace splits, vs-last-run comparison, and auto-detected PBs.
+  route map, pace splits, vs-last-run comparison, and auto-detected PBs. Titles/route adapt
+  for recovery sessions; PBs keep runs and recovery in separate "leagues"
+  (`isRecovery`/`logNoun`/`findPrevRun`).
+- **Recovery / cross-training:** logged from the Health tab (`RECOVERY_ACTIVITIES`,
+  `startRecovery`). Reuses the run timer via `startRun({recovery:true, gps})`: outdoor
+  (walk/cycle) use GPS for distance+route; indoor (treadmill/swim/elliptical…) are a pure
+  stopwatch (`timer.noDistance` → no estimated distance). Logged as `type:'recovery'` with
+  `activity`/`icon`; ends in the same celebration → analytics flow.
 - **Health tab (Body Check-in):** 5th nav tab. `renderHealth()` draws a daily readiness
   check-in (energy/legs/sleep scales + pain-area chips → green/amber/red verdict, saved
   to `APP.checkIns` keyed by LOCAL date via `todayKey()`). `INJURIES` data drives a list
