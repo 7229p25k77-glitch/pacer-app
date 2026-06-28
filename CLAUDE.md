@@ -39,9 +39,9 @@ session is productive immediately.
   Don't hardcode colors; use the variables.
 - **Data (per-profile, on device):** a registry `localStorage['pacer_registry']`
   (`{activeId, profiles:[{id,name}]}`) plus one blob per profile at
-  `localStorage['pacer_data_<id>']` = `{profile, logs, completedRuns}`. `save()`/`load()`
-  act on the active profile. `DEFAULT_PROFILE` holds defaults. Device-level prefs:
-  `pacer_gps_enabled`, `pacer_theme`.
+  `localStorage['pacer_data_<id>']` = `{profile, logs, completedRuns, checkIns}`.
+  `save()`/`load()` act on the active profile. `DEFAULT_PROFILE` holds defaults.
+  Device-level prefs: `pacer_gps_enabled`, `pacer_theme`.
 - **Profiles:** up to 5. Setup **wizard** (`startWizard`/`renderWizard`/`WIZ_STEPS`:
   name, goal, weeks, level, days, units, gps). Picker = the "Who's running?" gate
   (`showProfileGate`/`renderProfileGate`); switch via Me screen; remove via the ✕ on a
@@ -63,7 +63,20 @@ session is productive immediately.
   `quickStartNextRun`).
 - **Run detail:** interactive Pace Analysis graph (`renderPaceChart`/`drawPaceChart`) —
   bars sized by lap TIME (y-axis = time), tap a bar to see that lap's actual pace vs the
-  average; lap list shows real per-lap pace.
+  average; lap list shows real per-lap pace. `renderPaceChart`/`renderDetailMap` take an
+  optional element id so other screens can reuse them. The route map (`renderDetailMap`)
+  is a theme-aware `<canvas>` (reads CSS vars; repaints on theme toggle) with a locally
+  drawn street backdrop — no map tiles, stays offline.
+- **Post-run analytics:** the "Run Complete" celebration has a *View Analytics* button →
+  `openRunAnalytics(LAST_RUN_ID)` overlay: effort/strain review (saved as `log.feel`),
+  route map, pace splits, vs-last-run comparison, and auto-detected PBs.
+- **Health tab (Body Check-in):** 5th nav tab. `renderHealth()` draws a daily readiness
+  check-in (energy/legs/sleep scales + pain-area chips → green/amber/red verdict, saved
+  to `APP.checkIns` keyed by LOCAL date via `todayKey()`). `INJURIES` data drives a list
+  of common running injuries; reported pain flags matching ones (`AREA_INJURY`); tapping
+  opens `#injury-overlay` (`openInjury`) with signs/causes/strengthening/recovery moves.
+  **All injury content carries a clear "not medical advice / not from licensed
+  professionals" disclaimer — keep that whenever editing this section.**
 
 ## Gotchas
 - One big `<script>`; after edits run the syntax check above.

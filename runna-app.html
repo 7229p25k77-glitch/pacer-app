@@ -15,6 +15,7 @@
   --accent:#00E5A0;--accent-dim:rgba(0,229,160,0.12);
   --accent2:#7B6FFF;--accent2-dim:rgba(123,111,255,0.12);
   --warn:#FF6B6B;--warn-dim:rgba(255,107,107,0.12);
+  --amber:#F0A93B;--amber-dim:rgba(240,169,59,0.14);
   --text:#F0F0F8;--text2:#8888AA;--text3:#55556A;
   --ink:#0A0A0F; /* dark text that sits on top of accent-colored buttons — same in both themes */
   --nav-h:60px;--radius:16px;--radius-sm:10px;
@@ -27,6 +28,7 @@ html.light{
   --accent:#009E74;--accent-dim:rgba(0,158,116,0.14);
   --accent2:#6A5CFF;--accent2-dim:rgba(106,92,255,0.12);
   --warn:#D94840;--warn-dim:rgba(217,72,64,0.12);
+  --amber:#C9821A;--amber-dim:rgba(201,130,26,0.14);
   --text:#16161D;--text2:#5C5C70;--text3:#9B9BAD;
 }
 html.light .today-hero{background:linear-gradient(135deg,#E2F6EE 0%,#E7EEF9 100%);border-color:#CBE8DB;}
@@ -366,6 +368,68 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .ach-badge .ach-sub{font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;}
 .an-footer{padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));}
 
+/* HEALTH / BODY CHECK-IN */
+.hl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 12px;padding:16px;}
+.hl-card-title{font-size:16px;font-weight:800;margin-bottom:2px;}
+.hl-card-sub{font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.4;}
+.hl-sec-title{font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text2);margin:18px 16px 8px;}
+/* readiness scales */
+.scale-row{margin-bottom:14px;}
+.scale-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+.scale-head .sh-label{font-size:13.5px;font-weight:700;}
+.scale-head .sh-val{font-size:12px;font-weight:700;color:var(--text2);}
+.scale-opts{display:flex;gap:6px;}
+.scale-dot{flex:1;height:42px;border-radius:var(--radius-sm);background:var(--surface2);border:1.5px solid transparent;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;filter:grayscale(0.4);opacity:0.75;}
+.scale-dot.selected{border-color:var(--accent);background:var(--accent-dim);filter:none;opacity:1;}
+/* pain area chips */
+.area-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+.area-chip{padding:8px 13px;border-radius:20px;background:var(--surface2);border:1.5px solid transparent;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:.15s;}
+.area-chip.selected{border-color:var(--warn);background:var(--warn-dim);color:var(--warn);}
+.area-chip.ok.selected{border-color:var(--accent);background:var(--accent-dim);color:var(--accent);}
+/* readiness verdict banner */
+.readiness{margin:14px 0 0;padding:14px;border-radius:var(--radius-sm);font-size:13.5px;line-height:1.5;border:1px solid var(--border);}
+.readiness b{font-weight:800;}
+.readiness.green{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.readiness.amber{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
+.readiness.red{background:var(--warn-dim);border-color:var(--warn);color:var(--warn);}
+.hl-save-btn{width:100%;margin-top:14px;padding:14px;background:var(--accent);color:var(--ink);font-size:15px;font-weight:800;border:none;border-radius:var(--radius-sm);cursor:pointer;}
+.hl-save-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
+.hl-saved-note{text-align:center;font-size:12.5px;color:var(--text2);margin-top:10px;}
+/* recent check-ins strip */
+.recent-strip{display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;}
+.recent-pip{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10px;color:var(--text2);}
+.recent-dot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;background:var(--surface2);}
+.recent-dot.green{background:var(--accent-dim);} .recent-dot.amber{background:var(--amber-dim);} .recent-dot.red{background:var(--warn-dim);}
+/* injury list */
+.inj-disclaimer{margin:0 16px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;font-size:11.5px;color:var(--text2);line-height:1.45;}
+.inj-disclaimer b{color:var(--text);font-weight:800;}
+.inj-row{display:flex;align-items:center;gap:13px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 10px;padding:14px;cursor:pointer;transition:background .15s;}
+.inj-row:active{background:var(--surface2);}
+.inj-row.flagged{border-color:var(--warn);}
+.inj-emoji{font-size:26px;flex-shrink:0;}
+.inj-info{flex:1;min-width:0;}
+.inj-name{font-size:15px;font-weight:700;}
+.inj-name .flag-tag{font-size:10px;font-weight:800;color:var(--warn);background:var(--warn-dim);padding:2px 7px;border-radius:20px;margin-left:6px;letter-spacing:0.3px;}
+.inj-desc{font-size:12.5px;color:var(--text2);margin-top:2px;line-height:1.4;}
+.inj-chev{color:var(--text3);font-size:20px;flex-shrink:0;}
+/* injury detail overlay */
+#injury-overlay{display:none;position:fixed;inset:0;z-index:320;background:var(--bg);flex-direction:column;}
+#injury-overlay.visible{display:flex;}
+.injd-section{margin:18px 16px 0;}
+.injd-h{font-size:13px;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+.injd-what{font-size:14.5px;line-height:1.55;color:var(--text);margin:0 16px;}
+.injd-list{list-style:none;padding:0;margin:0;}
+.injd-list li{position:relative;padding:0 0 0 20px;margin-bottom:7px;font-size:13.5px;line-height:1.5;color:var(--text2);}
+.injd-list li::before{content:'';position:absolute;left:2px;top:8px;width:6px;height:6px;border-radius:50%;background:var(--text3);}
+.ex-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:13px 14px;margin-bottom:9px;}
+.ex-name{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.ex-tag{font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;letter-spacing:0.3px;}
+.ex-tag.strengthen{color:var(--accent);background:var(--accent-dim);}
+.ex-tag.recovery{color:var(--accent2);background:var(--accent2-dim);}
+.ex-how{font-size:13px;color:var(--text2);line-height:1.5;margin-top:5px;}
+.injd-redflag{margin:18px 16px;background:var(--warn-dim);border:1px solid var(--warn);border-radius:var(--radius-sm);padding:13px 14px;font-size:13px;line-height:1.5;color:var(--warn);}
+.injd-redflag b{font-weight:800;}
+
 .info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
 
 /* PROFILE GATE — "Who's running?" picker */
@@ -490,6 +554,27 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   </div>
 </div>
 
+<!-- HEALTH / CHECK-IN -->
+<div class="screen" id="health-screen">
+  <div class="screen-header">
+    <div class="screen-title">Body Check-in</div>
+    <div class="screen-sub">Tune in to how you feel, and learn to run injury-free</div>
+  </div>
+  <div class="scroll-area" id="health-scroll"></div>
+</div>
+
+<!-- INJURY DETAIL OVERLAY -->
+<div id="injury-overlay">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closeInjury()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Back
+    </button>
+    <div class="workout-type-pill" id="inj-area">Injury</div>
+    <div class="workout-title" id="inj-title">Injury</div>
+  </div>
+  <div class="detail-scroll" id="inj-body"></div>
+</div>
+
 <!-- PROFILE -->
 <div class="screen" id="profile-screen">
   <div class="screen-header"><div class="screen-title">Profile</div></div>
@@ -570,6 +655,9 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   </button>
   <button class="nav-btn" id="nav-log" onclick="showScreen('log-screen')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Log
+  </button>
+  <button class="nav-btn" id="nav-health" onclick="showScreen('health-screen')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Health
   </button>
   <button class="nav-btn" id="nav-profile" onclick="showScreen('profile-screen')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Me
@@ -738,6 +826,7 @@ function save() {
       profile: APP.profile,
       logs: APP.logs,
       completedRuns: APP.completedRuns,
+      checkIns: APP.checkIns,
     }));
   } catch(e) {}
 }
@@ -750,6 +839,7 @@ function load() {
       if (p.profile) APP.profile = {...APP.profile, ...p.profile};
       if (p.logs) APP.logs = p.logs;
       if (p.completedRuns) APP.completedRuns = p.completedRuns;
+      if (p.checkIns) APP.checkIns = p.checkIns;
     }
   } catch(e) {}
 }
@@ -782,6 +872,7 @@ function resetAppData(){
   APP.profile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
   APP.logs = [];
   APP.completedRuns = {};
+  APP.checkIns = [];
 }
 
 // Load the active profile into the app and render every screen
@@ -792,7 +883,8 @@ function bootProfile(){
   setGreeting(); setTodayLabel();
   applyProfileToUI();
   applyAvatarToUI(APP.profile.avatarDataUrl || null);
-  renderHome(); renderPlan(); updateLogScreen();
+  checkinDraft = null;   // reload today's check-in for the active profile
+  renderHome(); renderPlan(); updateLogScreen(); renderHealth();
   applyUnitsEverywhere();
   showScreen('home-screen');
 }
@@ -1388,6 +1480,7 @@ const APP = {
   },
   logs: [],          // completed run records
   completedRuns: {}, // key: "w{week}r{runIndex}" => true
+  checkIns: [],      // body check-ins: {date,energy,legs,sleep,pain:[],score}
   plan: [],
   currentScreen: 'home-screen',
   prevScreen: 'home-screen',
@@ -1500,13 +1593,14 @@ function setTodayLabel() {
 // ════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════
-const SCREENS=['home-screen','plan-screen','log-screen','profile-screen','workout-screen'];
-const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','profile-screen':'nav-profile'};
+const SCREENS=['home-screen','plan-screen','log-screen','health-screen','profile-screen','workout-screen'];
+const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','health-screen':'nav-health','profile-screen':'nav-profile'};
 function showScreen(id) {
   SCREENS.forEach(s=>document.getElementById(s).classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
+  if (id==='health-screen') renderHealth();
   if (id!=='workout-screen') APP.prevScreen=id;
   APP.currentScreen=id;
 }
@@ -2422,6 +2516,263 @@ function renderAchievements(log){
   }
   el.innerHTML = badges.map(b=>`<div class="ach-badge"><span class="ach-emoji">${b[0]}</span><div><div class="ach-text">${b[1]}</div><div class="ach-sub">${b[2]}</div></div></div>`).join('');
 }
+
+// ════════════════════════════════════════
+// BODY CHECK-IN + INJURY GUIDANCE  (Health tab)
+// Educational content only — NOT medical advice. Exercises are common,
+// widely-recommended movements; the UI repeats that and points to a pro.
+// ════════════════════════════════════════
+const READINESS_SCALES = [
+  { key:'energy', label:'Energy',          emojis:['🥱','😪','😐','🙂','⚡'], words:['Drained','Low','OK','Good','Buzzing'] },
+  { key:'legs',   label:'Legs & soreness', emojis:['🧱','😣','😐','🙂','🦿'], words:['Heavy / sore','Tight','OK','Loose','Fresh'] },
+  { key:'sleep',  label:'Sleep',           emojis:['😵','🥱','😐','🙂','🌟'], words:['Poor','Light','OK','Good','Great'] },
+];
+const PAIN_AREAS = [
+  { id:'none',     label:'No pain 👍', ok:true },
+  { id:'heel',     label:'Heel / foot' },
+  { id:'shin',     label:'Shin' },
+  { id:'knee',     label:'Knee' },
+  { id:'achilles', label:'Achilles / ankle' },
+  { id:'hip',      label:'Hip / outer thigh' },
+];
+const AREA_INJURY = { heel:['plantar'], shin:['shin'], knee:['runnersknee','itband'], achilles:['achilles'], hip:['itband'] };
+
+const INJURIES = [
+  { id:'plantar', emoji:'🦶', name:'Plantar Fasciitis', area:'Foot / heel',
+    short:'Stabbing heel pain, worst with your first steps in the morning.',
+    what:'Irritation of the plantar fascia — the thick band of tissue running along the sole of your foot from heel to toes. One of the most common causes of heel pain in runners.',
+    symptoms:['Sharp, stabbing heel pain with the first steps in the morning','Pain that eases as you warm up but returns after running or long standing','Tenderness when you press the inside of the heel'],
+    causes:['Ramping up mileage too quickly','Tight calves and Achilles','Worn-out or unsupportive shoes','Lots of running on hard surfaces'],
+    strengthen:[
+      {name:'Heel raises off a step', how:'On a step, slowly rise onto your toes, then lower the heels below the step level. 3×12–15, slow and controlled.'},
+      {name:'Towel toe scrunches', how:'Sitting, scrunch a towel toward you using only your toes. 3×30 seconds per foot.'},
+      {name:'Short-foot arch lifts', how:'Without curling your toes, gently lift the arch of your foot and hold. 3×10 holds.'},
+    ],
+    recovery:[
+      {name:'Plantar fascia stretch', how:'Cross one ankle over the other knee and pull your toes back toward your shin until the arch stretches. Hold 30s ×3.'},
+      {name:'Frozen bottle roll', how:'Roll the sole of your foot over a frozen water bottle for 3–5 minutes to ease pain.'},
+      {name:'Calf wall stretch', how:'Hands on a wall, one leg back with knee straight and heel down. Hold 30s each side.'},
+    ],
+    redflag:'heel pain is severe, has not improved after 2–3 weeks of care, or you feel numbness or tingling in the foot.' },
+
+  { id:'achilles', emoji:'🦵', name:'Achilles Tendinitis', area:'Ankle / heel',
+    short:'Pain and stiffness in the cord just above your heel.',
+    what:'Overload or inflammation of the Achilles tendon — the strong cord connecting your calf muscles to your heel bone.',
+    symptoms:['Stiffness and aching just above the heel, especially first thing in the morning','Pain at the start of a run that may ease, then return','Tenderness or slight thickening of the tendon'],
+    causes:['Sudden jumps in mileage, speed or hill work','Tight or weak calf muscles','Flat or worn-out shoes','Stiff calves from lots of sitting'],
+    strengthen:[
+      {name:'Eccentric heel drops', how:'On a step, rise on both feet, then slowly lower on the sore side only, dropping the heel below the step. 3×15 — the single most effective Achilles exercise.'},
+      {name:'Bent-knee calf raises', how:'Calf raises with knees slightly bent to target the deeper soleus muscle. 3×15.'},
+      {name:'Seated calf raises', how:'Sitting with weight resting on your knees, push up onto your toes. 3×20.'},
+    ],
+    recovery:[
+      {name:'Standing calf stretch', how:'Back leg straight, heel down, lean toward a wall. Hold 30s each side.'},
+      {name:'Soleus stretch', how:'Same position but bend the back knee to stretch lower in the calf. Hold 30s each side.'},
+      {name:'Calf foam roll', how:'Roll the calf slowly for 1–2 minutes each side, pausing on tight spots.'},
+    ],
+    redflag:'you felt or heard a sudden "pop", cannot push off the foot, or there is severe swelling — this can signal a tendon tear.' },
+
+  { id:'shin', emoji:'🦴', name:'Shin Splints', area:'Lower leg / shin',
+    short:'Aching or tenderness along the front/inner shin.',
+    what:'"Shin splints" (medial tibial stress syndrome) is pain along the shinbone from overloaded muscles and connective tissue — very common when starting out or adding mileage.',
+    symptoms:['A dull ache or tenderness along the inner edge of the shinbone','Pain at the start of runs that may settle, then worsen with more mileage','Soreness to the touch along the shin'],
+    causes:['Doing too much, too soon','Running on hard surfaces','Weak hips, calves or feet','Old or unsupportive shoes'],
+    strengthen:[
+      {name:'Toe raises', how:'Stand with heels down and lift your toes/forefoot up toward you. 3×15 to build the front-of-shin muscle.'},
+      {name:'Heel walks', how:'Walk on your heels with toes lifted for 30 seconds, 3 rounds.'},
+      {name:'Calf raises', how:'Slow raises up and down, 3×15, to balance the lower leg.'},
+    ],
+    recovery:[
+      {name:'Shin & calf stretch', how:'Kneel sitting back on your heels to stretch the front of the shin, then do a standing calf stretch. 30s each.'},
+      {name:'Calf foam roll', how:'Gently roll the calf and the muscles beside the shinbone (not the bone) for 1–2 minutes.'},
+      {name:'Ice after running', how:'Ice the sore area 10–15 minutes after a run if it flares up.'},
+    ],
+    redflag:'the pain becomes sharp and pinpoint on the bone, hurts when you hop on one leg, or persists at rest — this could be a stress fracture.' },
+
+  { id:'runnersknee', emoji:'🦵', name:'Runner’s Knee', area:'Knee (front)',
+    short:'Dull ache around or behind the kneecap.',
+    what:'Patellofemoral pain — irritation where the kneecap glides over the thigh bone. The most common knee complaint in runners.',
+    symptoms:['A dull ache around or behind the kneecap','Pain going down stairs, squatting, or sitting with bent knees a while','Occasional grinding or clicking'],
+    causes:['Weak hip and glute muscles letting the knee collapse inward','Rapid increase in mileage or hills','Tight quads and IT band','Worn-out shoes'],
+    strengthen:[
+      {name:'Glute bridges', how:'Lie on your back, feet flat, lift your hips by squeezing your glutes. 3×15.'},
+      {name:'Clamshells', how:'On your side with knees bent, open the top knee while keeping feet together. 3×15 each side.'},
+      {name:'Step-downs', how:'Stand on a low step and slowly lower the other foot toward the floor with control. 3×10 each leg.'},
+    ],
+    recovery:[
+      {name:'Quad stretch', how:'Pull your heel toward your bum, keeping knees together. Hold 30s each side.'},
+      {name:'Outer-thigh foam roll', how:'Roll the outside of the thigh slowly for 1–2 minutes each side.'},
+      {name:'Hip flexor stretch', how:'In a half-kneel, push your hips gently forward. Hold 30s each side.'},
+    ],
+    redflag:'the knee swells, locks, gives way, or the pain is sharp rather than a dull ache.' },
+
+  { id:'itband', emoji:'🦵', name:'IT Band Syndrome', area:'Outer knee / hip',
+    short:'Sharp pain on the outside of the knee, often at a set distance.',
+    what:'Irritation of the iliotibial band — a long band of tissue down the outside of the thigh — usually felt as sharp pain on the outside of the knee.',
+    symptoms:['Sharp or burning pain on the outside of the knee, often after a set distance','Pain worse running downhill or with a long stride','Tenderness on the outer knee or thigh'],
+    causes:['Weak hip and glute muscles','Sudden mileage increases','Running on cambered roads or lots of downhill','A narrow, crossing-over stride'],
+    strengthen:[
+      {name:'Clamshells', how:'On your side, knees bent, open the top knee keeping feet together. 3×15 each side.'},
+      {name:'Side leg raises', how:'On your side, lift the straight top leg up and slightly back. 3×15 each side.'},
+      {name:'Single-leg glute bridges', how:'Bridge using one leg at a time. 3×10 each side.'},
+    ],
+    recovery:[
+      {name:'Standing IT band stretch', how:'Cross the sore leg behind the other and lean away to that side. Hold 30s each side.'},
+      {name:'Outer-thigh foam roll', how:'Roll the outside of the thigh from hip to just above the knee, slowly, 1–2 minutes each side.'},
+      {name:'Figure-4 glute stretch', how:'Lying down, cross one ankle over the opposite knee and pull the thigh toward you. Hold 30s each side.'},
+    ],
+    redflag:'the outer knee swells or the pain stays severe despite rest and reduced mileage.' },
+];
+
+let checkinDraft = null;  // in-progress (unsaved) check-in for today
+
+function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; } // LOCAL date, not UTC
+function readinessClass(score){ return score>=4 ? 'green' : (score>=2.8 ? 'amber' : 'red'); }
+
+function loadCheckinDraft(){
+  const today = (APP.checkIns||[]).find(c=>c.date===todayKey());
+  checkinDraft = today
+    ? { energy:today.energy, legs:today.legs, sleep:today.sleep, pain:[...(today.pain||[])], saved:true }
+    : { energy:null, legs:null, sleep:null, pain:[], saved:false };
+}
+
+function computeReadiness(d){
+  const score=(d.energy+d.legs+d.sleep)/3;
+  const hasPain=d.pain.some(p=>p!=='none');
+  let cls=readinessClass(score);
+  if(hasPain) cls='red';
+  let msg;
+  if(cls==='green') msg='<b>Green — ready to run.</b> Your body looks recovered. A good day for a quality or longer session if your plan calls for it.';
+  else if(cls==='amber') msg='<b>Amber — keep it easy.</b> Run gentle and conversational today and skip the hard efforts. Easy days are where fitness is built.';
+  else if(hasPain) msg='<b>Red — pain flagged.</b> Don’t push through pain. Consider a rest day or cross-training, and check the guidance below for the area bothering you.';
+  else msg='<b>Red — low readiness.</b> You’re run-down. A rest day or an easy walk will do more for your running than a hard run today.';
+  return { score, cls, hasPain, msg };
+}
+
+function renderHealth(){
+  const el=document.getElementById('health-scroll');
+  if(!el) return;
+  if(!checkinDraft) loadCheckinDraft();
+  const keepScroll = el.scrollTop;
+  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinCard() + renderRecentCheckins() + renderInjurySection();
+  el.scrollTop = keepScroll;   // taps re-render; don't jump back to the top
+}
+
+function renderCheckinCard(){
+  const d=checkinDraft;
+  const scales = READINESS_SCALES.map(sc=>{
+    const v=d[sc.key];
+    const dots = sc.emojis.map((em,i)=>`<button class="scale-dot${v===i+1?' selected':''}" onclick="setReadiness('${sc.key}',${i+1})" aria-label="${sc.label} ${i+1} of 5">${em}</button>`).join('');
+    return `<div class="scale-row">
+      <div class="scale-head"><span class="sh-label">${sc.label}</span><span class="sh-val">${v?sc.words[v-1]:'—'}</span></div>
+      <div class="scale-opts">${dots}</div>
+    </div>`;
+  }).join('');
+  const chips = PAIN_AREAS.map(a=>{
+    const on=d.pain.includes(a.id);
+    return `<button class="area-chip${a.ok?' ok':''}${on?' selected':''}" onclick="togglePain('${a.id}')">${a.label}</button>`;
+  }).join('');
+  const complete = d.energy && d.legs && d.sleep;
+  const banner = complete ? `<div class="readiness ${computeReadiness(d).cls}">${computeReadiness(d).msg}</div>` : '';
+  const savedNote = d.saved ? '<div class="hl-saved-note">✓ Saved for today — tap any option to update.</div>' : '';
+  return `<div class="hl-card">
+    <div class="hl-card-title">How are you feeling today?</div>
+    <div class="hl-card-sub">A quick daily check helps you train hard when you’re fresh and back off before little niggles become injuries.</div>
+    ${scales}
+    <div class="scale-head" style="margin:4px 0 8px;"><span class="sh-label">Any aches or pain?</span></div>
+    <div class="area-chips">${chips}</div>
+    ${banner}
+    <button class="hl-save-btn" ${complete?'':'disabled'} onclick="saveCheckIn()">${d.saved?'Update check-in':'Save check-in'}</button>
+    ${savedNote}
+  </div>`;
+}
+
+function setReadiness(key,val){
+  if(!checkinDraft) loadCheckinDraft();
+  checkinDraft[key] = (checkinDraft[key]===val) ? null : val;
+  checkinDraft.saved=false;
+  renderHealth();
+}
+function togglePain(id){
+  if(!checkinDraft) loadCheckinDraft();
+  const arr=checkinDraft.pain;
+  if(id==='none'){
+    checkinDraft.pain = arr.includes('none') ? [] : ['none'];
+  } else {
+    const i=arr.indexOf(id);
+    if(i>=0) arr.splice(i,1); else arr.push(id);
+    checkinDraft.pain = arr.filter(x=>x!=='none');  // a real area clears "No pain"
+  }
+  checkinDraft.saved=false;
+  renderHealth();
+}
+function saveCheckIn(){
+  const d=checkinDraft;
+  if(!(d && d.energy && d.legs && d.sleep)) return;
+  const r=computeReadiness(d);
+  const entry={ date:todayKey(), energy:d.energy, legs:d.legs, sleep:d.sleep, pain:[...d.pain], score:Math.round(r.score*10)/10, cls:r.cls, ts:Date.now() };
+  APP.checkIns = (APP.checkIns||[]).filter(c=>c.date!==entry.date);
+  APP.checkIns.unshift(entry);
+  if(APP.checkIns.length>60) APP.checkIns=APP.checkIns.slice(0,60);
+  d.saved=true;
+  save();
+  renderHealth();
+}
+
+function renderRecentCheckins(){
+  const list=(APP.checkIns||[]).slice(0,7);
+  if(!list.length) return '';
+  const pips=list.map(c=>{
+    const dt=new Date(c.date+'T00:00:00');
+    const day=dt.toLocaleDateString(undefined,{weekday:'short'}).slice(0,2);
+    const cls=c.cls||readinessClass(c.score||0);
+    const emoji=cls==='green'?'😄':(cls==='amber'?'😐':'😣');
+    return `<div class="recent-pip"><div class="recent-dot ${cls}">${emoji}</div><span>${day}</span></div>`;
+  }).join('');
+  return `<div class="hl-sec-title">Recent check-ins</div><div class="hl-card"><div class="recent-strip">${pips}</div></div>`;
+}
+
+function renderInjurySection(){
+  const flagged=new Set();
+  (checkinDraft&&checkinDraft.pain||[]).forEach(p=>(AREA_INJURY[p]||[]).forEach(id=>flagged.add(id)));
+  const rows=INJURIES.map(inj=>{
+    const fl=flagged.has(inj.id);
+    return `<div class="inj-row${fl?' flagged':''}" onclick="openInjury('${inj.id}')">
+      <span class="inj-emoji">${inj.emoji}</span>
+      <div class="inj-info">
+        <div class="inj-name">${inj.name}${fl?'<span class="flag-tag">FOR YOU</span>':''}</div>
+        <div class="inj-desc">${inj.short}</div>
+      </div>
+      <span class="inj-chev">›</span>
+    </div>`;
+  }).join('');
+  return `<div class="hl-sec-title">Common running injuries</div>
+    <div class="inj-disclaimer">⚠️ <b>Not medical advice.</b> Pacer is not made by licensed medical professionals — this is general information based on commonly accepted, research-informed methods for everyday runners. For a diagnosis or treatment plan, see a doctor or physiotherapist — especially if pain is sharp, comes with swelling, or lasts more than a few days.</div>
+    ${rows}<div style="height:16px;"></div>`;
+}
+
+function exCard(e,cls,tag){
+  return `<div class="ex-card"><div class="ex-name">${escapeHtml(e.name)} <span class="ex-tag ${cls}">${tag}</span></div><div class="ex-how">${escapeHtml(e.how)}</div></div>`;
+}
+function openInjury(id){
+  const inj=INJURIES.find(i=>i.id===id); if(!inj) return;
+  document.getElementById('inj-area').textContent=inj.area;
+  document.getElementById('inj-title').textContent=inj.name;
+  const body=document.getElementById('inj-body');
+  body.innerHTML=`
+    <div class="inj-disclaimer" style="margin-top:16px;">⚠️ <b>General information, not medical advice.</b> These are commonly recommended, research-informed exercises — not guidance from a professional who has assessed you personally. Ease off any movement that causes pain, and see a physiotherapist if symptoms persist.</div>
+    <div class="injd-section"><div class="injd-h">What it is</div></div>
+    <div class="injd-what">${inj.what}</div>
+    <div class="injd-section"><div class="injd-h">Common signs</div><ul class="injd-list">${inj.symptoms.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+    <div class="injd-section"><div class="injd-h">Why it happens</div><ul class="injd-list">${inj.causes.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+    <div class="injd-section"><div class="injd-h">Strengthening &amp; prevention</div>${inj.strengthen.map(e=>exCard(e,'strengthen','Strengthen')).join('')}</div>
+    <div class="injd-section"><div class="injd-h">Recovery &amp; mobility</div>${inj.recovery.map(e=>exCard(e,'recovery','Recover')).join('')}</div>
+    <div class="injd-redflag"><b>See a professional if:</b> ${inj.redflag}</div>
+    <div style="height:24px;"></div>`;
+  body.scrollTop=0;
+  document.getElementById('injury-overlay').classList.add('visible');
+}
+function closeInjury(){ document.getElementById('injury-overlay').classList.remove('visible'); }
 
 // Quick-start the next scheduled plan run (guided), straight from the Log page
 function quickStartNextRun(){
