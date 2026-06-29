@@ -281,6 +281,9 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .detail-map{margin:16px;border-radius:var(--radius);overflow:hidden;height:200px;background:var(--surface2);position:relative;}
 .pace-chart{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow:hidden;}
 .pace-chart-title{font-size:14px;font-weight:700;margin-bottom:12px;}
+.pc-tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:var(--radius-sm);margin-bottom:14px;}
+.pc-tab{flex:1;padding:8px 10px;border:none;background:none;border-radius:calc(var(--radius-sm) - 3px);font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;transition:.15s;}
+.pc-tab.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.12);}
 .pc-readout{text-align:center;margin-bottom:14px;}
 .pc-sel-name{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.6px;font-weight:700;}
 .pc-sel-pace{font-size:30px;font-weight:800;color:var(--accent);margin-top:2px;letter-spacing:-0.5px;}
@@ -291,7 +294,9 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .pc-yaxis{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;height:110px;font-size:10px;color:var(--text3);flex-shrink:0;}
 .pc-yaxis-lbl{color:var(--text2);font-weight:700;}
 .pc-bar-col{flex:1;height:100%;display:flex;align-items:flex-end;justify-content:center;background:none;border:none;padding:0;cursor:pointer;min-width:0;}
-.pc-bar{width:100%;border-radius:4px 4px 0 0;min-height:6px;opacity:0.7;transition:opacity 0.15s;}
+.pc-bar{width:100%;border-radius:4px 4px 0 0;min-height:6px;opacity:0.7;transition:opacity 0.15s;background:var(--accent);}
+.pc-bar.pc-run{background:var(--accent);}
+.pc-bar.pc-walk{background:var(--amber);}
 .pc-bar-col.selected .pc-bar{opacity:1;outline:2px solid var(--text);outline-offset:1px;}
 .pc-hint{font-size:11px;color:var(--text3);text-align:center;margin-top:8px;}
 .pace-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
@@ -421,8 +426,24 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .inj-desc{font-size:12.5px;color:var(--text2);margin-top:2px;line-height:1.4;}
 .inj-chev{color:var(--text3);font-size:20px;flex-shrink:0;}
 /* injury detail overlay */
-#injury-overlay{display:none;position:fixed;inset:0;z-index:320;background:var(--bg);flex-direction:column;}
-#injury-overlay.visible{display:flex;}
+#injury-overlay,#achievements-overlay{display:none;position:fixed;inset:0;z-index:320;background:var(--bg);flex-direction:column;}
+#injury-overlay.visible,#achievements-overlay.visible{display:flex;}
+/* achievements list */
+.ach-summary{text-align:center;margin:18px 16px 6px;}
+.ach-summary-num{font-size:40px;font-weight:800;color:var(--accent);line-height:1;}
+.ach-summary-lbl{font-size:13px;color:var(--text2);margin-top:4px;}
+.ach-group-lbl{font-size:13px;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:var(--text2);margin:20px 16px 10px;}
+.ach-item{display:flex;gap:13px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 14px;margin:0 16px 10px;opacity:0.7;}
+.ach-item.done{opacity:1;border-color:var(--accent);}
+.ach-ic{font-size:26px;flex-shrink:0;width:32px;text-align:center;filter:grayscale(1);opacity:0.55;}
+.ach-item.done .ach-ic{filter:none;opacity:1;}
+.ach-body{flex:1;min-width:0;}
+.ach-title{font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:6px;}
+.ach-check{color:var(--accent);font-weight:800;}
+.ach-sub{font-size:12px;color:var(--text2);margin:2px 0 9px;}
+.ach-bar{height:6px;background:var(--surface2);border-radius:3px;overflow:hidden;}
+.ach-bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s ease;}
+.ach-prog{font-size:11px;color:var(--text2);margin-top:5px;font-weight:700;}
 .injd-section{margin:18px 16px 0;}
 .injd-h{font-size:13px;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
 .injd-what{font-size:14.5px;line-height:1.55;color:var(--text);margin:0 16px;}
@@ -583,6 +604,18 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   <div class="detail-scroll" id="inj-body"></div>
 </div>
 
+<!-- ACHIEVEMENTS -->
+<div id="achievements-overlay">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closeAchievements()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Back
+    </button>
+    <div class="workout-type-pill">Milestones</div>
+    <div class="workout-title">Achievements</div>
+  </div>
+  <div class="detail-scroll" id="ach-body"></div>
+</div>
+
 <!-- PROFILE -->
 <div class="screen" id="profile-screen">
   <div class="screen-header"><div class="screen-title">Profile</div></div>
@@ -602,6 +635,12 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
       <div class="stat-box"><div class="stat-val accent-val" id="profile-weeks">8</div><div class="stat-lbl">Weeks</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="profile-runs-done">0</div><div class="stat-lbl">Runs done</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="profile-streak">0🔥</div><div class="stat-lbl">Streak</div></div>
+    </div>
+    <div class="settings-group">
+      <div class="settings-label">Milestones</div>
+      <div class="settings-card">
+        <div class="settings-row" onclick="openAchievements()"><span class="sr-icon">🏆</span><span class="sr-label">Achievements</span><span class="sr-value" id="sr-achievements">0 complete</span><span class="sr-arrow">›</span></div>
+      </div>
     </div>
     <div class="settings-group">
       <div class="settings-label">Training</div>
@@ -800,7 +839,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="an-card" id="an-feel"></div>
     <div class="an-section-title" id="an-route-title">Your route</div>
     <div class="detail-map" id="an-map"></div>
-    <div class="pace-chart" id="an-pace-chart"></div>
+    <div class="pace-chart" id="an-pace"></div>
     <div class="an-section-title" id="an-laps-title">Lap breakdown</div>
     <div class="lap-list" id="an-laps"></div>
     <div class="an-section-title" id="an-compare-title">How this run compares</div>
@@ -1612,6 +1651,7 @@ function showScreen(id) {
   document.getElementById(id).classList.add('active');
   if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
   if (id==='health-screen') renderHealth();
+  if (id==='profile-screen') updateAchievementsRow();
   if (id!=='workout-screen') APP.prevScreen=id;
   APP.currentScreen=id;
 }
@@ -2449,7 +2489,7 @@ function openRunAnalytics(id, opts){
   document.getElementById('an-map').style.display = showRoute ? '' : 'none';
   renderFeel(log);
   if(showRoute) renderDetailMap(log, 'an-map');
-  renderPaceChart(log, 'an-pace-chart');
+  renderPaceChart(log, 'an-pace');   // single chart, splits run/walk into tabs when both exist
   const hasLaps = renderDetailLaps(log, 'an-laps');
   document.getElementById('an-laps-title').style.display = hasLaps ? '' : 'none';
   renderRunComparison(log);
@@ -2594,6 +2634,125 @@ function renderAchievements(log){
     return;
   }
   el.innerHTML = badges.map(b=>`<div class="ach-badge"><span class="ach-emoji">${b[0]}</span><div><div class="ach-text">${b[1]}</div><div class="ach-sub">${b[2]}</div></div></div>`).join('');
+}
+
+// ════════════════════════════════════════
+// ACHIEVEMENTS PAGE (Profile → Achievements)
+// All-time milestones across runs + recovery/cross-training sessions.
+// ════════════════════════════════════════
+const ACHIEVEMENTS = [
+  // Distance — cumulative running distance
+  {g:'Distance',icon:'👟',title:'First 5 km',sub:'Run 5 km in total',metric:'totalRunKm',target:5,kind:'km'},
+  {g:'Distance',icon:'🏃',title:'10 km total',sub:'Run 10 km in total',metric:'totalRunKm',target:10,kind:'km'},
+  {g:'Distance',icon:'🥉',title:'25 km total',sub:'Run 25 km in total',metric:'totalRunKm',target:25,kind:'km'},
+  {g:'Distance',icon:'🥈',title:'50 km total',sub:'Run 50 km in total',metric:'totalRunKm',target:50,kind:'km'},
+  {g:'Distance',icon:'🥇',title:'100 km total',sub:'Run 100 km in total',metric:'totalRunKm',target:100,kind:'km'},
+  {g:'Distance',icon:'🏆',title:'250 km total',sub:'Run 250 km in total',metric:'totalRunKm',target:250,kind:'km'},
+  // Consistency — number of runs
+  {g:'Consistency',icon:'✅',title:'First run',sub:'Log your first run',metric:'runCount',target:1,kind:'count'},
+  {g:'Consistency',icon:'🖐️',title:'5 runs',sub:'Log 5 runs',metric:'runCount',target:5,kind:'count'},
+  {g:'Consistency',icon:'🔟',title:'10 runs',sub:'Log 10 runs',metric:'runCount',target:10,kind:'count'},
+  {g:'Consistency',icon:'💪',title:'25 runs',sub:'Log 25 runs',metric:'runCount',target:25,kind:'count'},
+  {g:'Consistency',icon:'🏅',title:'50 runs',sub:'Log 50 runs',metric:'runCount',target:50,kind:'count'},
+  // Endurance — longest single run
+  {g:'Endurance',icon:'🦵',title:'Non-stop 1 km',sub:'A single run of 1 km',metric:'longestRunKm',target:1,kind:'km'},
+  {g:'Endurance',icon:'🌟',title:'Non-stop 3 km',sub:'A single run of 3 km',metric:'longestRunKm',target:3,kind:'km'},
+  {g:'Endurance',icon:'🚀',title:'Run a 5K',sub:'A single run of 5 km',metric:'longestRunKm',target:5,kind:'km'},
+  {g:'Endurance',icon:'🔥',title:'Run a 10K',sub:'A single run of 10 km',metric:'longestRunKm',target:10,kind:'km'},
+  // Speed — best average pace on any run
+  {g:'Speed',icon:'🐢',title:'Sub-8:00 pace',sub:'Average a run under 8:00 / km',metric:'bestPaceSec',target:480,kind:'pace'},
+  {g:'Speed',icon:'⚡',title:'Sub-7:00 pace',sub:'Average a run under 7:00 / km',metric:'bestPaceSec',target:420,kind:'pace'},
+  {g:'Speed',icon:'💨',title:'Sub-6:00 pace',sub:'Average a run under 6:00 / km',metric:'bestPaceSec',target:360,kind:'pace'},
+  // Time on feet — total minutes moving (runs + recovery)
+  {g:'Time on feet',icon:'⏱️',title:'1 hour total',sub:'60 minutes of moving',metric:'totalMin',target:60,kind:'min'},
+  {g:'Time on feet',icon:'⏰',title:'5 hours total',sub:'300 minutes of moving',metric:'totalMin',target:300,kind:'min'},
+  {g:'Time on feet',icon:'🕰️',title:'10 hours total',sub:'600 minutes of moving',metric:'totalMin',target:600,kind:'min'},
+  // Cross-training & recovery
+  {g:'Recovery & cross-training',icon:'🧘',title:'First recovery',sub:'Log a recovery session',metric:'recovCount',target:1,kind:'count'},
+  {g:'Recovery & cross-training',icon:'🚴',title:'5 sessions',sub:'Log 5 recovery sessions',metric:'recovCount',target:5,kind:'count'},
+  {g:'Recovery & cross-training',icon:'🏊',title:'15 sessions',sub:'Log 15 recovery sessions',metric:'recovCount',target:15,kind:'count'},
+  // Check-ins
+  {g:'Listening to your body',icon:'📝',title:'First check-in',sub:'Log how you feel once',metric:'checkinCount',target:1,kind:'count'},
+  {g:'Listening to your body',icon:'📅',title:'7 check-ins',sub:'Check in 7 times',metric:'checkinCount',target:7,kind:'count'},
+  // Plan
+  {g:'Your plan',icon:'🎯',title:'Halfway there',sub:'Complete 50% of your plan',metric:'planPct',target:50,kind:'pct'},
+  {g:'Your plan',icon:'🏁',title:'Plan complete',sub:'Finish every run in your plan',metric:'planPct',target:100,kind:'pct'},
+];
+
+function achievementStats(){
+  const logs = APP.logs || [];
+  const runs = logs.filter(l=>!isRecovery(l));
+  const recov = logs.filter(isRecovery);
+  const sum = (arr,f)=>arr.reduce((a,l)=>a+(f(l)||0),0);
+  return {
+    runCount: runs.length,
+    totalRunKm: sum(runs,l=>l.distKm),
+    longestRunKm: runs.reduce((m,l)=>Math.max(m,l.distKm||0),0),
+    bestPaceSec: runs.reduce((m,l)=>{const p=l.paceSecPerKm||0; return p>0?(m?Math.min(m,p):p):m;},0),
+    totalMin: sum(logs,l=>logDurSec(l))/60,
+    recovCount: recov.length,
+    checkinCount: (APP.checkIns||[]).length,
+    planDone: Object.keys(APP.completedRuns||{}).length,
+    planTotal: (APP.plan||[]).reduce((a,w)=>a+((w.runs&&w.runs.length)||0),0),
+  };
+}
+
+function achStatus(a, s){
+  if(a.kind==='pace'){
+    const best=s.bestPaceSec;
+    const done = best>0 && best<=a.target;
+    return { done, pct: done?1:(best>0?Math.min(0.95, a.target/best):0),
+             label: done ? 'Achieved ✓' : (best>0 ? `Best: ${fmtPace(best)} ${paceLabel()}` : 'No runs yet') };
+  }
+  const cur = a.kind==='pct' ? (s.planTotal ? s.planDone/s.planTotal*100 : 0) : (s[a.metric]||0);
+  const done = cur >= a.target;
+  const pct = a.target>0 ? Math.min(1, cur/a.target) : 1;
+  let label;
+  if(done) label='Achieved ✓';
+  else if(a.kind==='km')  label=`${Math.round(cur*10)/10} / ${a.target} km`;
+  else if(a.kind==='min') label=`${Math.round(cur)} / ${a.target} min`;
+  else if(a.kind==='pct') label=`${Math.round(cur)}% / ${a.target}%`;
+  else label=`${Math.round(cur)} / ${a.target}`;
+  return { done, pct, label };
+}
+
+function achievementsUnlocked(){
+  const s=achievementStats();
+  return ACHIEVEMENTS.filter(a=>achStatus(a,s).done).length;
+}
+
+function updateAchievementsRow(){
+  const el=document.getElementById('sr-achievements');
+  if(el){ const n=achievementsUnlocked(); el.textContent = `${n} complete`; }
+}
+
+function openAchievements(){ renderAchievementsList(); document.getElementById('achievements-overlay').classList.add('visible'); }
+function closeAchievements(){ document.getElementById('achievements-overlay').classList.remove('visible'); }
+
+function renderAchievementsList(){
+  const s=achievementStats();
+  const rows=ACHIEVEMENTS.map(a=>({a, st:achStatus(a,s)}));
+  const unlocked=rows.filter(r=>r.st.done).length;
+  let html=`<div class="ach-summary">
+      <div class="ach-summary-num">${unlocked}</div>
+      <div class="ach-summary-lbl">milestone${unlocked===1?'':'s'} complete · keep going for more</div>
+    </div>`;
+  let group=null;
+  rows.forEach(({a,st})=>{
+    if(a.g!==group){ group=a.g; html+=`<div class="ach-group-lbl">${a.g}</div>`; }
+    html+=`<div class="ach-item${st.done?' done':''}">
+      <div class="ach-ic">${a.icon}</div>
+      <div class="ach-body">
+        <div class="ach-title">${a.title}${st.done?'<span class="ach-check">✓</span>':''}</div>
+        <div class="ach-sub">${a.sub}</div>
+        <div class="ach-bar"><div class="ach-bar-fill" style="width:${Math.round(st.pct*100)}%"></div></div>
+        <div class="ach-prog">${st.label}</div>
+      </div>
+    </div>`;
+  });
+  html+=`<div style="height:24px;"></div>`;
+  document.getElementById('ach-body').innerHTML=html;
+  document.getElementById('ach-body').scrollTop=0;
 }
 
 // ════════════════════════════════════════
@@ -3127,57 +3286,99 @@ function buildLapPaceData(log){
   return laps;
 }
 
-let DETAIL_LAPS = null;
-
-function renderPaceChart(log, elId) {
-  elId = elId || 'detail-pace-chart';
-  const laps = buildLapPaceData(log);
-  const el = document.getElementById(elId);
-  if (!laps.length) { el.innerHTML = ''; el.style.display='none'; DETAIL_LAPS = null; return; }
-  el.style.display='';
-  DETAIL_LAPS = { laps, avgPaceSec: log.paceSecPerKm || 0, distKm: log.distKm || 0, timeStr: log.timeStr || '', elId };
-  drawPaceChart(-1);   // -1 = show overall average
+// Classify a lap as walking/recovery vs running, so the pace charts can split.
+function isWalkLap(lap){
+  const n=(lap.name||lap.label||'').toLowerCase();
+  if(n.includes('walk')) return true;
+  if(n.includes('run')||n.includes('jog')||n.includes('tempo')||n.includes('interval')||n.includes('sprint')||n.includes('race')) return false;
+  if(n.includes('warm')||n.includes('cool')||n.includes('recover')||n.includes('rest')) return true;
+  return !(lap.color||'').includes('green');   // colour fallback: green = run
 }
 
-function drawPaceChart(sel) {
-  const D = DETAIL_LAPS;
+const PACE_CHARTS = {};   // elId -> {tabs:[{title,laps,avgPaceSec,distKm,timeStr}], active, sel}
+
+// Roll a set of laps into a tab's summary (its own avg pace / distance / time).
+function buildPaceTab(laps, log, title){
+  const totalDist = laps.reduce((a,l)=>a+(l.dist||0),0);
+  const totalTime = laps.reduce((a,l)=>a+(l.timeSec||0),0);
+  const avg = (totalDist>0 && totalTime>0) ? totalTime/totalDist : (log.paceSecPerKm||0);
+  return { title, laps, avgPaceSec:avg, distKm:totalDist, timeStr:fmtTime(totalTime) };
+}
+
+// Render the pace chart into elId. When the workout has BOTH running and walking
+// laps it shows Running/Walking tabs over one chart; otherwise a single view.
+function renderPaceChart(log, elId) {
+  elId = elId || 'detail-pace-chart';
+  const el = document.getElementById(elId);
+  if (!el) return false;
+  const all = buildLapPaceData(log);
+  if (!all.length) { el.innerHTML = ''; el.style.display='none'; delete PACE_CHARTS[elId]; return false; }
+  el.style.display='';
+  const runLaps  = all.filter(l=>!isWalkLap(l));
+  const walkLaps = all.filter(l=> isWalkLap(l));
+  const tabs = (runLaps.length && walkLaps.length)
+    ? [ buildPaceTab(runLaps, log, 'Running'), buildPaceTab(walkLaps, log, 'Walking') ]
+    : [ buildPaceTab(all, log, 'Pace') ];
+  PACE_CHARTS[elId] = { tabs, active:0, sel:-1 };
+  drawPaceChart(elId);
+  return true;
+}
+
+function selectPaceTab(elId, i){ const D=PACE_CHARTS[elId]; if(!D) return; D.active=i; D.sel=-1; drawPaceChart(elId); }
+function selectPaceBar(elId, i){ const D=PACE_CHARTS[elId]; if(!D) return; D.sel=(D.sel===i?-1:i); drawPaceChart(elId); }
+
+function drawPaceChart(elId) {
+  const D = PACE_CHARTS[elId];
   if (!D) return;
-  const laps = D.laps;
-  const maxTime = Math.max.apply(null, laps.map(l => l.timeSec || 0).concat(0.0001));
+  const T = D.tabs[D.active], laps = T.laps, sel = D.sel;
+  const paces = laps.map(l => l.paceSec || 0).filter(p => p > 0);
+  const minPace = paces.length ? Math.min.apply(null, paces) : 0;   // fastest (smallest sec/km)
+  const maxPace = paces.length ? Math.max.apply(null, paces) : 0;   // slowest
+  const paceRange = maxPace - minPace;
+
+  const tabBar = D.tabs.length>1
+    ? `<div class="pc-tabs">${D.tabs.map((t,i)=>`<button class="pc-tab${i===D.active?' active':''}" onclick="selectPaceTab('${elId}',${i})">${t.title}</button>`).join('')}</div>`
+    : '';
 
   let readout;
   if (sel >= 0 && laps[sel]) {
     const l = laps[sel];
-    const diff = l.paceSec - D.avgPaceSec;
+    const diff = l.paceSec - T.avgPaceSec;
     let cmp = '';
-    if (D.avgPaceSec > 0 && l.paceSec > 0) {
+    if (T.avgPaceSec > 0 && l.paceSec > 0) {
       cmp = Math.abs(diff) < 3 ? 'on pace' : (diff < 0 ? fmtPace(-diff) + ' faster than avg' : fmtPace(diff) + ' slower than avg');
     }
     readout = `<div class="pc-sel-name">${escapeHtml(l.name)}</div>
       <div class="pc-sel-pace">${l.paceSec > 0 ? fmtPace(l.paceSec) : '—'} <span>${paceLabel()}</span></div>
-      <div class="pc-sel-sub">${fmtShort(l.dist)} · ${fmtTime(l.timeSec)}${cmp ? ' · ' + cmp : ''}</div>`;
+      <div class="pc-sel-sub">${fmtTime(l.timeSec)} · ${fmtShort(l.dist)}${cmp ? ' · ' + cmp : ''}</div>`;
   } else {
-    readout = `<div class="pc-sel-name">Average pace</div>
-      <div class="pc-sel-pace">${D.avgPaceSec > 0 ? fmtPace(D.avgPaceSec) : '—'} <span>${paceLabel()}</span></div>
-      <div class="pc-sel-sub">${fmtShort(D.distKm)} · ${D.timeStr} · tap a bar for each lap</div>`;
+    const kind = T.title==='Running' ? 'running ' : (T.title==='Walking' ? 'walking ' : '');
+    readout = `<div class="pc-sel-name">Average ${kind}pace</div>
+      <div class="pc-sel-pace">${T.avgPaceSec > 0 ? fmtPace(T.avgPaceSec) : '—'} <span>${paceLabel()}</span></div>
+      <div class="pc-sel-sub">${fmtShort(T.distKm)} · ${T.timeStr} · tap a bar for each lap</div>`;
   }
 
   let bars = '';
   laps.forEach((l, i) => {
-    const h = Math.max(8, Math.round((l.timeSec || 0) / maxTime * 100));
-    bars += `<button class="pc-bar-col${i === sel ? ' selected' : ''}" onclick="drawPaceChart(${i})" aria-label="${escapeHtml(l.name)}">
-        <div class="pc-bar ${l.color}" style="height:${h}%"></div>
+    let h;
+    if (l.paceSec > 0 && paceRange > 0) h = Math.round(14 + (maxPace - l.paceSec) / paceRange * 86); // faster → taller
+    else if (l.paceSec > 0) h = 60;   // every lap the same pace
+    else h = 10;                      // no pace data for this lap
+    const barClass = isWalkLap(l) ? 'pc-walk' : 'pc-run';
+    bars += `<button class="pc-bar-col${i === sel ? ' selected' : ''}" onclick="selectPaceBar('${elId}', ${i})" aria-label="${escapeHtml(l.name)}">
+        <div class="pc-bar ${barClass}" style="height:${h}%"></div>
       </button>`;
   });
 
-  document.getElementById(D.elId || 'detail-pace-chart').innerHTML =
-    `<div class="pace-chart-title">Pace Analysis</div>
+  document.getElementById(elId).innerHTML =
+    `<div class="pace-chart-title">Pace analysis</div>
+     ${tabBar}
      <div class="pc-readout">${readout}</div>
      <div class="pc-chart-area">
-       <div class="pc-yaxis"><span>${fmtTime(maxTime)}</span><span class="pc-yaxis-lbl">time</span><span>0:00</span></div>
+       <div class="pc-yaxis"><span>${paces.length?fmtPace(minPace):'—'}</span><span class="pc-yaxis-lbl">pace</span><span>${paces.length?fmtPace(maxPace):'—'}</span></div>
        <div class="pc-bars">${bars}</div>
      </div>
-     <div class="pc-hint">Taller bar = longer lap · tap for pace</div>`;
+     <div class="pc-hint">Taller bar = faster pace · tap a lap for pace &amp; time</div>`;
 }
 
 function renderDetailLaps(log, elId) {

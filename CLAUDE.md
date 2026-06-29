@@ -69,9 +69,13 @@ session is productive immediately.
   `renderPaceChart`/`renderDetailMap`/`renderDetailLaps` all take an optional element id so
   they render into the analytics overlay's `an-*` nodes. `openRunDetail` is a thin alias to
   it; the old `#detail-overlay` markup is unused/dead (left in place for now).
-- **Pace chart** (`drawPaceChart`): bars sized by lap TIME, tap a bar for that lap's pace
-  vs average. **Route map** (`renderDetailMap`): theme-aware `<canvas>` (reads CSS vars,
-  repaints on theme toggle) with a locally drawn street backdrop — no tiles, offline.
+- **Pace chart** (`renderPaceChart`/`drawPaceChart`, keyed by elId in `PACE_CHARTS`):
+  y-axis = PACE, bar height ∝ speed (taller = faster); tap a bar for that lap's pace +
+  duration. When a workout has both running and walking laps (`isWalkLap`) it shows
+  Running/Walking **tabs** over one chart (`selectPaceTab`/`selectPaceBar`), each with its
+  own average; bars coloured `pc-run`/`pc-walk`. **Route map** (`renderDetailMap`):
+  theme-aware `<canvas>` (reads CSS vars, repaints on theme toggle) with a locally drawn
+  street backdrop — no tiles, offline.
 - **Comparison** (`renderRunComparison`): two blocks — *vs your last* comparable session
   (`findPrevRun`) and *vs your recent average* (last ≤10, `avgOf`). Titles/route adapt for
   recovery; PBs keep runs and recovery in separate "leagues" (`isRecovery`/`logNoun`).
@@ -87,8 +91,12 @@ session is productive immediately.
   opens `#injury-overlay` (`openInjury`) with signs/causes/strengthening/recovery moves.
   **All injury content carries a clear "not medical advice / not from licensed
   professionals" disclaimer — keep that whenever editing this section.**
-
-## Gotchas
+- **Achievements (Profile → Milestones):** `openAchievements` → `#achievements-overlay`,
+  rendered by `renderAchievementsList` from the `ACHIEVEMENTS` array (grouped milestones:
+  distance/consistency/endurance/speed/time/recovery/check-ins/plan). `achievementStats()`
+  aggregates all-time figures from `APP.logs` (+ recovery), `APP.checkIns`, `completedRuns`;
+  `achStatus(a,s)` returns {done,pct,label}. Locked badges show a progress bar. The summary
+  + profile row show only the COMPLETED count (no fixed total — add new entries freely).
 - One big `<script>`; after edits run the syntax check above.
 - Old logged runs predate `lapTimes` → pace graph falls back to planned pace for them.
 - `escapeHtml()` user-entered names before injecting into innerHTML.
