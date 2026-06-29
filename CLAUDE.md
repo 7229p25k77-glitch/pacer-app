@@ -61,17 +61,20 @@ session is productive immediately.
   chosen in the wizard, not per run; toggle via Me → Location (GPS) info sheet.
   Free run + quick-start next run live on the Log page (`startFreeRun`,
   `quickStartNextRun`).
-- **Run detail:** interactive Pace Analysis graph (`renderPaceChart`/`drawPaceChart`) —
-  bars sized by lap TIME (y-axis = time), tap a bar to see that lap's actual pace vs the
-  average; lap list shows real per-lap pace. `renderPaceChart`/`renderDetailMap` take an
-  optional element id so other screens can reuse them. The route map (`renderDetailMap`)
-  is a theme-aware `<canvas>` (reads CSS vars; repaints on theme toggle) with a locally
-  drawn street backdrop — no map tiles, stays offline.
-- **Post-run analytics:** the "Run Complete" celebration has a *View Analytics* button →
-  `openRunAnalytics(LAST_RUN_ID)` overlay: effort/strain review (saved as `log.feel`),
-  route map, pace splits, vs-last-run comparison, and auto-detected PBs. Titles/route adapt
-  for recovery sessions; PBs keep runs and recovery in separate "leagues"
-  (`isRecovery`/`logNoun`/`findPrevRun`).
+- **Analytics page = the one detail view.** Opened by `openRunAnalytics(id, opts)` —
+  from the "Run Complete" celebration's *View Analytics* button (`opts` omitted → "Back to
+  Home" → home) AND by tapping any Log entry (`{from:'log'}` → "Back/Done" → log-screen,
+  via `ANALYTICS_RETURN`). Sections: effort/strain review (`renderFeel`, saved as `log.feel`,
+  editable on past runs), route map, pace splits, **lap breakdown**, comparison, PBs.
+  `renderPaceChart`/`renderDetailMap`/`renderDetailLaps` all take an optional element id so
+  they render into the analytics overlay's `an-*` nodes. `openRunDetail` is a thin alias to
+  it; the old `#detail-overlay` markup is unused/dead (left in place for now).
+- **Pace chart** (`drawPaceChart`): bars sized by lap TIME, tap a bar for that lap's pace
+  vs average. **Route map** (`renderDetailMap`): theme-aware `<canvas>` (reads CSS vars,
+  repaints on theme toggle) with a locally drawn street backdrop — no tiles, offline.
+- **Comparison** (`renderRunComparison`): two blocks — *vs your last* comparable session
+  (`findPrevRun`) and *vs your recent average* (last ≤10, `avgOf`). Titles/route adapt for
+  recovery; PBs keep runs and recovery in separate "leagues" (`isRecovery`/`logNoun`).
 - **Recovery / cross-training:** logged from the Health tab (`RECOVERY_ACTIVITIES`,
   `startRecovery`). Reuses the run timer via `startRun({recovery:true, gps})`: outdoor
   (walk/cycle) use GPS for distance+route; indoor (treadmill/swim/elliptical…) are a pure
