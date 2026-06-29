@@ -2884,14 +2884,17 @@ function updateLogScreen() {
   const empty=document.getElementById('log-empty');
   const entries=document.getElementById('log-entries');
   const totalKm=logs.reduce((a,l)=>a+(l.distKm||0),0);
-  const totalMin=logs.reduce((a,l)=>{
-    const p=(l.timeStr||'0:00').split(':');
-    return a+parseInt(p[0])*60+parseInt(p[1]||0);
+  const totalSec=logs.reduce((a,l)=>{
+    const p=(l.timeStr||'0:00').split(':').map(n=>parseInt(n)||0);
+    // "MM:SS" or "H:MM:SS"
+    const sec=p.length>=3 ? p[0]*3600+p[1]*60+p[2] : p[0]*60+(p[1]||0);
+    return a+sec;
   },0);
+  const totalMin=totalSec/60;
   document.getElementById('log-count').textContent=logs.length;
   document.getElementById('log-km').textContent=fmtShort(totalKm).replace(' '+unitLabel(),'');
   document.getElementById('log-km-lbl').textContent=unitLabel()+' total';
-  document.getElementById('log-min').textContent=Math.floor(totalMin);
+  document.getElementById('log-min').textContent=Math.round(totalMin);
   const pd=document.getElementById('profile-runs-done');
   if(pd) pd.textContent=logs.length;
   // "Start Next Run" button subtitle
