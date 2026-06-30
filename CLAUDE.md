@@ -65,6 +65,13 @@ session is productive immediately.
   **iOS web limit:** JS is fully suspended while backgrounded/screen-locked — the timer
   *catches up on return* (time stays correct) but cannot run, fire voice, or read GPS in the
   background. True background GPS/audio needs a native app; state this honestly.
+- **Crash/eviction recovery:** the whole run is in memory, so if iOS discards the
+  backgrounded page it would be lost. `saveActiveRun()` snapshots the run to
+  `localStorage['pacer_active_run']` (every 5s, on pause, and on visibilitychange-hidden /
+  pagehide); `stopRunCleanup()` clears it. On launch (`DOMContentLoaded` → after
+  `bootProfile`), `resumeActiveRun()` restores an interrupted run for the same profile if its
+  `savedAt` is < 3h old, re-shows the timer, and the wall-clock catch-up corrects the elapsed
+  time. The route has a straight-line gap across the dead period (GPS was suspended).
 - **Voice cues** (`speak()` queue, Web Speech API): finish says just "Run complete." (kept
   short — cleanup cancels speech ~1.5s later). At each lap end, a RUNNING lap (`!isWalkLap`)
   triggers `lapPaceCallout()` — actual pace + faster/slower vs the lap's goal pace — then the

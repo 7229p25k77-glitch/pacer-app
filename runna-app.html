@@ -1590,6 +1590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     showProfileGate();   // brand-new device → create the first profile
   } else {
     bootProfile();       // open straight to the last-used profile (switch via Me → Switch profile)
+    resumeActiveRun();   // if a run was interrupted (app evicted), restore it and catch up
   }
 });
 
@@ -2217,6 +2218,7 @@ function startRun(runOverride) {
   t.running     = true;
   t.lastTickMs  = Date.now();   // wall-clock anchor so the timer survives backgrounding
   t.gpsOffset   = null;
+  t.usesGPS     = wantGPS;
   t.lapDistances= new Array(t.phases.length).fill(0);
   t.lapTimes    = new Array(t.phases.length).fill(0);
   t.gpsPositions= [];
@@ -2266,6 +2268,7 @@ function timerTick() {
     stepTimerSecond(t, steps === 1);              // live only on the final (current) second
   }
   updateTimerUI();
+  if (t.running && t.elapsed % 5 === 0) saveActiveRun();   // periodic crash-recovery snapshot
 }
 
 // Advance the run by exactly one second. `live` = this is the real current second
@@ -2369,9 +2372,67 @@ function releaseWakeLock() {
 
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) { resyncTimer(); requestWakeLock(); }
+  else saveActiveRun();   // about to be suspended — snapshot now in case we're evicted
 });
 window.addEventListener('focus', resyncTimer);
 window.addEventListener('pageshow', resyncTimer);
+window.addEventListener('pagehide', saveActiveRun);
+
+// ── Crash / eviction recovery ──────────────────────────────────────────────
+// The whole run lives in memory, so a full reload (e.g. iOS discarding the
+// backgrounded app under memory pressure) would lose it. We snapshot the run to
+// localStorage on every meaningful change; on next launch `resumeActiveRun()`
+// restores it and the wall-clock catch-up corrects for the time it was gone.
+const ACTIVE_RUN_KEY = 'pacer_active_run';
+function saveActiveRun() {
+  const t = APP.timer;
+  if (!t || !t.running) return;
+  try {
+    localStorage.setItem(ACTIVE_RUN_KEY, JSON.stringify({
+      v:1, activeId: REG.activeId, savedAt: t.lastTickMs || Date.now(),
+      phases:t.phases, elapsed:t.elapsed, distKm:t.distKm,
+      phaseIndex:t.phaseIndex, phaseElapsed:t.phaseElapsed, paused:t.paused,
+      lapDistances:t.lapDistances, lapTimes:t.lapTimes,
+      gpsPositions:t.gpsPositions, gpsOffset:t.gpsOffset,
+      noDistance:t.noDistance, usesGPS:t.usesGPS,
+      spokenMidLap:t.spokenMidLap, spokenCountdown:t.spokenCountdown,
+      freeRun:APP.freeRun, recovery:APP.recovery, currentWorkout:APP.currentWorkout,
+    }));
+  } catch (e) { /* quota or unavailable — fine */ }
+}
+function clearActiveRun() { try { localStorage.removeItem(ACTIVE_RUN_KEY); } catch (e) {} }
+
+function resumeActiveRun() {
+  let snap;
+  try { snap = JSON.parse(localStorage.getItem(ACTIVE_RUN_KEY) || 'null'); } catch (e) { snap = null; }
+  if (!snap || snap.v !== 1 || !snap.phases || !snap.phases.length) { clearActiveRun(); return false; }
+  if (snap.activeId && REG.activeId && snap.activeId !== REG.activeId) return false; // another profile's run
+  const deadMs = Date.now() - (snap.savedAt || 0);
+  if (deadMs < 0 || deadMs > 3 * 3600 * 1000) { clearActiveRun(); return false; }   // stale / abandoned
+  const t = APP.timer;
+  t.phases=snap.phases; t.elapsed=snap.elapsed||0; t.distKm=snap.distKm||0;
+  t.phaseIndex=snap.phaseIndex||0; t.phaseElapsed=snap.phaseElapsed||0;
+  t.paused=!!snap.paused; t.running=true;
+  t.lapDistances=snap.lapDistances||new Array(t.phases.length).fill(0);
+  t.lapTimes=snap.lapTimes||new Array(t.phases.length).fill(0);
+  t.gpsPositions=snap.gpsPositions||[]; t.gpsOffset=(snap.gpsOffset!=null?snap.gpsOffset:null);
+  t.noDistance=!!snap.noDistance; t.usesGPS=!!snap.usesGPS;
+  t.spokenMidLap=snap.spokenMidLap||new Array(t.phases.length).fill(false);
+  t.spokenCountdown=snap.spokenCountdown||new Array(t.phases.length).fill(false);
+  t.lastTickMs=snap.savedAt;                 // catch-up anchor
+  if (t.interval) { clearInterval(t.interval); t.interval = null; }
+  APP.freeRun=!!snap.freeRun; APP.recovery=snap.recovery||null; APP.currentWorkout=snap.currentWorkout||null;
+  const labels=t.phases.slice(0,5).map(l=>(l.name||l.label||'').split(' ')[0]);
+  document.getElementById('timer-phase-labels').innerHTML=labels.map(l=>`<span>${l}</span>`).join('');
+  document.getElementById('pause-btn').textContent=t.paused?'▶':'⏸';
+  document.getElementById('run-timer').classList.add('visible');
+  updateTimerUI();
+  if (t.usesGPS && !t.noDistance) startGPS();
+  requestWakeLock();
+  t.interval=setInterval(timerTick,1000);
+  if (!t.paused) timerTick();                // immediately catch up the time we were away
+  return true;
+}
 
 function updateTimerUI() {
   const t = APP.timer;
@@ -2407,6 +2468,7 @@ function togglePause() {
   } else {
     speak('Resuming.', 'high');
   }
+  saveActiveRun();   // persist the pause state for crash recovery
 }
 
 function nextPhase() {
@@ -2435,6 +2497,7 @@ function stopRunCleanup() {
   t.noDistance = false;
   t.lastTickMs = null;
   releaseWakeLock();
+  clearActiveRun();   // run is over — drop the crash-recovery snapshot
   APP.recovery = null;
   APP.freeRun = false;
 }
