@@ -2215,6 +2215,8 @@ function startRun(runOverride) {
   t.phaseElapsed= 0;
   t.paused      = false;
   t.running     = true;
+  t.lastTickMs  = Date.now();   // wall-clock anchor so the timer survives backgrounding
+  t.gpsOffset   = null;
   t.lapDistances= new Array(t.phases.length).fill(0);
   t.lapTimes    = new Array(t.phases.length).fill(0);
   t.gpsPositions= [];
@@ -2237,13 +2239,38 @@ function startRun(runOverride) {
 
   updateTimerUI();
   if (wantGPS) startGPS();
+  requestWakeLock();
   t.interval = setInterval(timerTick, 1000);
 }
 
+// The timer is driven by the WALL CLOCK, not by counting setInterval ticks.
+// Mobile browsers suspend JS (and throttle timers) when the screen locks or the
+// app is backgrounded, so a tick-counting timer falls behind. Each call advances
+// the run by however many real seconds have elapsed since the last tick, replaying
+// the missed seconds so the run "catches up" when you return. Caught-up seconds
+// are silent (live=false) so we don't spam voice cues after coming back.
+const MAX_CATCHUP_SECS = 6 * 3600;   // safety cap on a single catch-up burst
+
 function timerTick() {
   const t = APP.timer;
-  if (t.paused || !t.running) return;
+  if (!t.running) return;
+  const now = Date.now();
+  if (t.paused) { t.lastTickMs = now; return; }   // paused time never counts
+  if (!t.lastTickMs) t.lastTickMs = now;
+  const realSteps = Math.floor((now - t.lastTickMs) / 1000);
+  if (realSteps < 1) return;
+  t.lastTickMs += realSteps * 1000;               // keep the clock anchored
+  let steps = Math.min(realSteps, MAX_CATCHUP_SECS);
+  for (; steps > 0; steps--) {
+    if (!t.running) break;
+    stepTimerSecond(t, steps === 1);              // live only on the final (current) second
+  }
+  updateTimerUI();
+}
 
+// Advance the run by exactly one second. `live` = this is the real current second
+// (do voice cues); false = replaying a second missed while backgrounded (silent).
+function stepTimerSecond(t, live) {
   t.elapsed++;
 
   // How far we add each second when estimating — based on the current phase's
@@ -2265,7 +2292,7 @@ function timerTick() {
   const deltaKm = Math.max(0, t.distKm - prevTotal);
 
   t.phaseElapsed++;
-  if (!cp) { updateTimerUI(); return; }
+  if (!cp) return;
 
   // Track each lap's ACTUAL distance and time so per-lap pace is real, not averaged
   t.lapDistances[t.phaseIndex] = (t.lapDistances[t.phaseIndex] || 0) + deltaKm;
@@ -2274,7 +2301,7 @@ function timerTick() {
   const secsLeft = estSecs - t.phaseElapsed;
 
   // ── 10-SECOND COUNTDOWN before lap ends ──
-  if (secsLeft === 10 && !t.spokenCountdown[t.phaseIndex]) {
+  if (live && secsLeft === 10 && !t.spokenCountdown[t.phaseIndex]) {
     t.spokenCountdown[t.phaseIndex] = true;
     const nextLap = t.phases[t.phaseIndex + 1];
     if (nextLap) {
@@ -2286,6 +2313,7 @@ function timerTick() {
   // ── MID-LAP ENCOURAGEMENT on longer laps ──
   const midPoint = Math.floor(estSecs / 2);
   if (
+    live &&
     t.phaseElapsed === midPoint &&
     estSecs >= 300 &&            // only for laps 5 minutes or longer
     !t.spokenMidLap[t.phaseIndex]
@@ -2301,21 +2329,49 @@ function timerTick() {
     const endedIdx = t.phaseIndex;
     t.phaseIndex++;
     t.phaseElapsed = 0;
-    const newLap   = t.phases[t.phaseIndex];
-    // Pace feedback for a running lap that just ended (needs real distance)
-    let callout = '';
-    if (!isWalkLap(endedLap)) {
-      const d = t.lapDistances[endedIdx] || 0, tSec = t.lapTimes[endedIdx] || 0;
-      if (d > 0.03 && tSec > 0) callout = lapPaceCallout(endedLap, tSec / d) + ' ';
+    if (live) {
+      const newLap = t.phases[t.phaseIndex];
+      // Pace feedback for a running lap that just ended (needs real distance)
+      let callout = '';
+      if (!isWalkLap(endedLap)) {
+        const d = t.lapDistances[endedIdx] || 0, tSec = t.lapTimes[endedIdx] || 0;
+        if (d > 0.03 && tSec > 0) callout = lapPaceCallout(endedLap, tSec / d) + ' ';
+      }
+      // Announce: pace callout (if any) then the new lap, high priority
+      setTimeout(() => {
+        speak(callout + lapAnnouncement(newLap, t.phaseIndex + 1, t.phases.length), 'high');
+      }, 100);
     }
-    // Announce: pace callout (if any) then the new lap, high priority
-    setTimeout(() => {
-      speak(callout + lapAnnouncement(newLap, t.phaseIndex + 1, t.phases.length), 'high');
-    }, 100);
   }
-
-  updateTimerUI();
 }
+
+// Re-sync the timer the moment the app comes back to the foreground, so the
+// catch-up happens immediately instead of waiting for the (throttled) interval.
+function resyncTimer() {
+  if (APP.timer && APP.timer.running && !APP.timer.paused) timerTick();
+}
+
+// Screen Wake Lock — keep the screen awake during a run so it doesn't auto-lock
+// while the app is open (the OS releases it when backgrounded; we re-request on
+// return). Best-effort: unsupported browsers just skip it.
+let _wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator && APP.timer && APP.timer.running && !_wakeLock) {
+      _wakeLock = await navigator.wakeLock.request('screen');
+      _wakeLock.addEventListener('release', () => { _wakeLock = null; });
+    }
+  } catch (e) { /* denied or unsupported — fine */ }
+}
+function releaseWakeLock() {
+  try { if (_wakeLock) { _wakeLock.release(); _wakeLock = null; } } catch (e) {}
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) { resyncTimer(); requestWakeLock(); }
+});
+window.addEventListener('focus', resyncTimer);
+window.addEventListener('pageshow', resyncTimer);
 
 function updateTimerUI() {
   const t = APP.timer;
@@ -2377,6 +2433,8 @@ function stopRunCleanup() {
   t.running = false;
   t.paused  = false;
   t.noDistance = false;
+  t.lastTickMs = null;
+  releaseWakeLock();
   APP.recovery = null;
   APP.freeRun = false;
 }

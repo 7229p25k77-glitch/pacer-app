@@ -52,11 +52,19 @@ session is productive immediately.
   every ~4th week; last two weeks always taper + race; `weekTitle()` names weeks.
 - **Run timer:** `startRun(runOverride?)` builds phases from a run's laps, each with a
   `pace` (sec/km) from `lapPaceSecPerKm()` (based on the home-page pace zones).
-  `timerTick()` runs every second; distance comes from real GPS when locked
-  (`calcGPSDistance`, accuracy-filtered, anchored so it never jumps backward), else a
-  pace-based estimate. Each lap's ACTUAL time+distance are recorded (`lapTimes`,
-  `lapDistances`) so per-lap pace is real. `finishRun()` logs the run; `promptStopRun()`
+  Driven by the WALL CLOCK, not tick-counting: `timerTick()` (1s interval) advances by the
+  real seconds elapsed since `t.lastTickMs` via `stepTimerSecond(t, live)`, replaying any
+  seconds missed while the app was backgrounded/suspended (replayed seconds are silent;
+  `live` only on the current second). `resyncTimer()` runs on visibilitychange/focus/pageshow
+  so it catches up instantly on return; paused time never counts. A best-effort screen
+  **Wake Lock** (`requestWakeLock`/`releaseWakeLock`) holds the screen on during a run.
+  Distance comes from real GPS when locked (`calcGPSDistance`, accuracy-filtered, anchored
+  so it never jumps backward), else a pace-based estimate. Each lap's ACTUAL time+distance
+  are recorded (`lapTimes`, `lapDistances`). `finishRun()` logs the run; `promptStopRun()`
   → end-run sheet (Save / Discard / Keep Running).
+  **iOS web limit:** JS is fully suspended while backgrounded/screen-locked — the timer
+  *catches up on return* (time stays correct) but cannot run, fire voice, or read GPS in the
+  background. True background GPS/audio needs a native app; state this honestly.
 - **Voice cues** (`speak()` queue, Web Speech API): finish says just "Run complete." (kept
   short — cleanup cancels speech ~1.5s later). At each lap end, a RUNNING lap (`!isWalkLap`)
   triggers `lapPaceCallout()` — actual pace + faster/slower vs the lap's goal pace — then the
