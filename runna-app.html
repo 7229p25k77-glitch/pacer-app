@@ -2119,12 +2119,12 @@ function lapAnnouncement(lap, lapNum, totalLaps) {
   if (isWalk && name.includes('recovery')) return `${lapLabel} Recovery walk. Bring your heart rate down.`;
   if (isWalk)  return `${lapLabel} Walk break. Keep moving.`;
   if (name.includes('continuous')) {
-    const mins = name.match(/(\d+)/)?.[1];
-    return mins ? `${lapLabel} Run for ${mins} minutes continuously. Easy conversational pace.` : `${lapLabel} Continuous run. Keep it easy.`;
+    const mins = name.match(/(\d+(?:\.\d+)?)\s*min/)?.[1];
+    return mins ? `${lapLabel} Run for ${mins} ${mins==='1'?'minute':'minutes'} continuously. Easy conversational pace.` : `${lapLabel} Continuous run. Keep it easy.`;
   }
   if (isRun) {
-    const mins = name.match(/(\d+)/)?.[1];
-    return mins ? `${lapLabel} Run for ${mins} minutes. Easy pace.` : `${lapLabel} Start running.`;
+    const mins = name.match(/(\d+(?:\.\d+)?)\s*min/)?.[1];
+    return mins ? `${lapLabel} Run for ${mins} ${mins==='1'?'minute':'minutes'}. Easy pace.` : `${lapLabel} Start running.`;
   }
   return `${lapLabel} ${lap.name}.`;
 }
@@ -2137,7 +2137,7 @@ function countdownAnnouncement(nextLap) {
   const isCool = name.includes('cool');
   const isRace = name.includes('race');
   const isHard = name.includes('interval') || nextLap.color === 'lap-orange';
-  const mins   = name.match(/(\d+)/)?.[1];
+  const mins   = name.match(/(\d+(?:\.\d+)?)\s*min/)?.[1];
 
   if (isCool)  return '10 seconds. Nearly there — cool down coming up.';
   if (isWalk)  return '10 seconds until your walk break.';
@@ -2160,6 +2160,26 @@ function midLapEncouragement(lap, lapNum) {
     return lines[lapNum % lines.length];
   }
   return null;
+}
+
+// Spoken pace feedback when a RUNNING lap ends: actual pace + whether to
+// speed up or ease off to hold the lap's goal pace (key for long-distance).
+function lapPaceCallout(lap, actualSecPerKm){
+  const milesU = APP.profile.units === 'miles';
+  const conv = milesU ? 1/0.621371 : 1;      // sec/km → sec/displayed-unit
+  const unit = milesU ? 'mile' : 'kilometer';
+  const aP = actualSecPerKm * conv;
+  const m = Math.floor(aP/60), s = Math.round(aP%60);
+  const paceStr = s===0
+    ? `${m} minute${m===1?'':'s'} per ${unit}`
+    : `${m} minute${m===1?'':'s'} ${s} second${s===1?'':'s'} per ${unit}`;
+  const goal = lap.pace || 0;
+  if (!goal) return `That lap, ${paceStr}.`;
+  const diff = aP - (goal * conv);           // + = slower than goal, − = faster
+  if (Math.abs(diff) <= 8) return `That lap, ${paceStr}. Right on your goal pace — hold it there.`;
+  const d = Math.round(Math.abs(diff));
+  if (diff > 0) return `That lap, ${paceStr}. About ${d} seconds slower than goal — pick up the pace.`;
+  return `That lap, ${paceStr}. About ${d} seconds faster than goal — ease back to save energy.`;
 }
 
 function startRun(runOverride) {
@@ -2267,7 +2287,7 @@ function timerTick() {
   const midPoint = Math.floor(estSecs / 2);
   if (
     t.phaseElapsed === midPoint &&
-    estSecs >= 60 &&              // only for laps > 60 sec
+    estSecs >= 300 &&            // only for laps 5 minutes or longer
     !t.spokenMidLap[t.phaseIndex]
   ) {
     t.spokenMidLap[t.phaseIndex] = true;
@@ -2277,13 +2297,20 @@ function timerTick() {
 
   // ── LAP TRANSITION ──
   if (t.phaseElapsed >= estSecs && t.phaseIndex < t.phases.length - 1) {
+    const endedLap = cp;                 // the lap that just finished
+    const endedIdx = t.phaseIndex;
     t.phaseIndex++;
     t.phaseElapsed = 0;
     const newLap   = t.phases[t.phaseIndex];
-    const isLast   = t.phaseIndex === t.phases.length - 1;
-    // Announce new lap immediately with high priority
+    // Pace feedback for a running lap that just ended (needs real distance)
+    let callout = '';
+    if (!isWalkLap(endedLap)) {
+      const d = t.lapDistances[endedIdx] || 0, tSec = t.lapTimes[endedIdx] || 0;
+      if (d > 0.03 && tSec > 0) callout = lapPaceCallout(endedLap, tSec / d) + ' ';
+    }
+    // Announce: pace callout (if any) then the new lap, high priority
     setTimeout(() => {
-      speak(lapAnnouncement(newLap, t.phaseIndex + 1, t.phases.length), 'high');
+      speak(callout + lapAnnouncement(newLap, t.phaseIndex + 1, t.phases.length), 'high');
     }, 100);
   }
 
@@ -2386,7 +2413,7 @@ function finishRun() {
   const phases  = t.phases.map(p=>({...p}));
   const rec = APP.recovery;   // recovery/cross-training meta (or null)
   // Announce then cleanup after a short delay so speech fires first
-  speak(rec ? 'Session complete! Nice recovery work.' : 'Run complete! Amazing work.', 'high');
+  speak(rec ? 'Session complete.' : 'Run complete.', 'high');
   setTimeout(() => stopRunCleanup(), 1500);
   document.getElementById('run-timer').classList.remove('visible');
 

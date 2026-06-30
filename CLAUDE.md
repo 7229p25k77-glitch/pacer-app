@@ -57,6 +57,12 @@ session is productive immediately.
   pace-based estimate. Each lap's ACTUAL time+distance are recorded (`lapTimes`,
   `lapDistances`) so per-lap pace is real. `finishRun()` logs the run; `promptStopRun()`
   → end-run sheet (Save / Discard / Keep Running).
+- **Voice cues** (`speak()` queue, Web Speech API): finish says just "Run complete." (kept
+  short — cleanup cancels speech ~1.5s later). At each lap end, a RUNNING lap (`!isWalkLap`)
+  triggers `lapPaceCallout()` — actual pace + faster/slower vs the lap's goal pace — then the
+  next-lap `lapAnnouncement()`. Mid-lap encouragement only for laps ≥ 5 min. Lap names embed
+  the run length as `… — N min`; parse minutes with `/(\d+(?:\.\d+)?)\s*min/`, NOT the first
+  digit (that's the rep number in "Run 3/6 — 1 min").
 - **GPS:** `startGPS()` (watchPosition, 30s timeout, clear status messages). Approval is
   chosen in the wizard, not per run; toggle via Me → Location (GPS) info sheet.
   Free run + quick-start next run live on the Log page (`startFreeRun`,
