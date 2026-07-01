@@ -110,6 +110,11 @@ session is productive immediately.
   behind the route; it reloads on the `online` event and the network-first SW caches viewed
   tiles. Attribution ("© OpenStreetMap, © CARTO") is required — keep it. NOTE: the share
   card (`drawShareCard`) still uses a locally-drawn grid (synchronous/offline).
+  Tapping the inline map opens a **full-screen zoomable map** (`#map-overlay`,
+  `openFullMap`/`fullMapRender`, state in `MAPV`): 1-finger pan, 2-finger pinch-zoom
+  (snapshot-scaled during the gesture, settles to an integer zoom via `fullMapZoomAt`),
+  double-tap to zoom in, ＋/− buttons, Recenter (`fullMapFit`), Close. `paintRoute` and
+  `fitZoom` are shared by the inline and full maps; inverse projection is `mercLng`/`mercLat`.
 - **Comparison** (`renderRunComparison`): two blocks — *vs your last* comparable session
   (`findPrevRun`) and *vs your recent average* (last ≤10, `avgOf`). Titles/route adapt for
   recovery; PBs keep runs and recovery in separate "leagues" (`isRecovery`/`logNoun`).

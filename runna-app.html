@@ -279,6 +279,17 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .detail-header{padding:calc(16px + var(--safe-top)) 20px 16px;background:linear-gradient(160deg,#0F2A20 0%,var(--bg) 60%);flex-shrink:0;}
 .detail-scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:32px;}
 .detail-map{margin:16px;border-radius:var(--radius);overflow:hidden;height:200px;background:var(--surface2);position:relative;}
+.map-expand-hint{position:absolute;top:8px;left:8px;width:28px;height:28px;border-radius:8px;background:rgba(0,0,0,0.45);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+/* Full-screen zoomable map */
+#map-overlay{display:none;position:fixed;inset:0;z-index:700;background:var(--bg);}
+#map-overlay.visible{display:block;}
+#map-full-canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none;}
+.mapf-btn{background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:12px;width:46px;height:46px;font-size:22px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 10px rgba(0,0,0,0.25);}
+.mapf-btn:active{background:var(--surface2);}
+.mapf-close{position:absolute;top:calc(12px + var(--safe-top));right:16px;}
+.mapf-zoom{position:absolute;right:16px;bottom:calc(28px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:10px;}
+.mapf-recenter{position:absolute;left:16px;bottom:calc(28px + env(safe-area-inset-bottom,0px));background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:100px;padding:11px 18px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,0.25);}
+.mapf-recenter:active{background:var(--surface2);}
 .pace-chart{margin:0 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow:hidden;}
 .pace-chart-title{font-size:14px;font-weight:700;margin-bottom:12px;}
 .pc-tabs{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:var(--radius-sm);margin-bottom:14px;}
@@ -796,6 +807,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <button class="modal-btn modal-btn-secondary" id="theme-light-btn" onclick="pickTheme('light')">☀️ Light</button>
     <button class="modal-btn modal-btn-secondary" onclick="closeTheme()">Close</button>
   </div>
+</div>
+
+<!-- FULL-SCREEN ZOOMABLE MAP -->
+<div id="map-overlay">
+  <canvas id="map-full-canvas"></canvas>
+  <button class="mapf-btn mapf-close" onclick="closeFullMap()" aria-label="Close map">✕</button>
+  <div class="mapf-zoom">
+    <button class="mapf-btn" onclick="fullMapZoom(1)" aria-label="Zoom in">＋</button>
+    <button class="mapf-btn" onclick="fullMapZoom(-1)" aria-label="Zoom out">－</button>
+  </div>
+  <button class="mapf-recenter" onclick="fullMapRecenter()">◎ Recenter</button>
 </div>
 
 <!-- MODAL -->
@@ -3535,11 +3557,45 @@ function mercY(lat, z){
   const s = Math.max(-0.9999, Math.min(0.9999, Math.sin(lat * Math.PI/180)));
   return (0.5 - Math.log((1+s)/(1-s)) / (4*Math.PI)) * mercWorld(z);
 }
+// Inverse Web Mercator (world pixel → lng/lat)
+function mercLng(x, z){ return x / mercWorld(z) * 360 - 180; }
+function mercLat(y, z){ const n = Math.PI - 2*Math.PI*y/mercWorld(z); return 180/Math.PI * Math.atan(0.5*(Math.exp(n) - Math.exp(-n))); }
 // CARTO basemap (OpenStreetMap data), light/dark to match the theme. @2x = retina.
 function tileURL(z, x, y, dark){
   const sub = ['a','b','c','d'][(x + y) & 3];
   return `https://${sub}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/${z}/${x}/${y}@2x.png`;
 }
+
+// Draw the route + start/finish markers + attribution (shared by inline & full map).
+function paintRoute(ctx, cssW, cssH, pts, toX, toY, c, lw){
+  ctx.save();
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  const trace = () => { ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
+  ctx.strokeStyle = c.light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)';   // halo for contrast
+  ctx.lineWidth = lw + 3; trace();
+  ctx.strokeStyle = c.route; ctx.lineWidth = lw; trace();
+  const mR = lw + 3;
+  const mark = (x,y,fill) => { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,mR,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,mR-2,0,Math.PI*2); ctx.fill(); };
+  mark(toX(pts[0].lng), toY(pts[0].lat), c.start);
+  mark(toX(pts[pts.length-1].lng), toY(pts[pts.length-1].lat), c.finish);
+  ctx.font = '9px -apple-system,system-ui,sans-serif';
+  const attr = '© OpenStreetMap, © CARTO';
+  const tw = ctx.measureText(attr).width;
+  ctx.fillStyle = c.light ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
+  ctx.fillRect(cssW - tw - 10, cssH - 14, tw + 10, 14);
+  ctx.fillStyle = c.light ? '#555' : '#bbb';
+  ctx.textBaseline = 'bottom'; ctx.fillText(attr, cssW - tw - 5, cssH - 3); ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+}
+
+// Largest integer zoom whose route bbox fits within (w,h) minus padding.
+function fitZoom(minLng, maxLng, minLat, maxLat, w, h, pad, maxZ){
+  for(let z = (maxZ||18); z > 2; z--){
+    if((mercX(maxLng,z)-mercX(minLng,z)) <= (w-pad*2) && (mercY(minLat,z)-mercY(maxLat,z)) <= (h-pad*2)) return z;
+  }
+  return 3;
+}
+
 let _mapRenderToken = 0;   // guards against stale async tile draws
 
 function renderDetailMap(log, elId) {
@@ -3559,6 +3615,11 @@ function renderDetailMap(log, elId) {
   canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
   canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
   el.innerHTML = ''; el.appendChild(canvas);
+  // Tap the map to open the full-screen, zoomable version.
+  el.style.cursor = 'pointer';
+  el.onclick = () => openFullMap(log);
+  const hint = document.createElement('div'); hint.className = 'map-expand-hint'; hint.textContent = '⤢';
+  el.appendChild(hint);
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
   const token = ++_mapRenderToken;
@@ -3567,42 +3628,15 @@ function renderDetailMap(log, elId) {
   const lats = pts.map(p=>p.lat), lngs = pts.map(p=>p.lng);
   const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
   const pad = 24;
-  let z = 18;
-  for(; z > 2; z--){
-    const w = mercX(maxLng,z) - mercX(minLng,z);
-    const h = mercY(minLat,z) - mercY(maxLat,z);
-    if(w <= (cssW - pad*2) && h <= (cssH - pad*2)) break;
-  }
+  const z = fitZoom(minLng, maxLng, minLat, maxLat, cssW, cssH, pad, 18);
   const cx = (mercX(minLng,z) + mercX(maxLng,z)) / 2;   // world-pixel centre of the route
   const cy = (mercY(minLat,z) + mercY(maxLat,z)) / 2;
-  const toX = lng => mercX(lng,z) - cx + cssW/2;
-  const toY = lat => mercY(lat,z) - cy + cssH/2;
 
   // Loading background (also the offline look until tiles arrive / on failure)
   ctx.fillStyle = c.bg(); ctx.fillRect(0,0,cssW,cssH);
-
-  // The route + markers + attribution, always redrawn on top of the tiles.
-  const drawRoute = () => {
-    ctx.save();
-    ctx.lineJoin='round'; ctx.lineCap='round';
-    const trace = () => { ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
-    ctx.strokeStyle = c.light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)';   // halo for contrast on any map
-    ctx.lineWidth = 7; trace();
-    ctx.strokeStyle = c.route; ctx.lineWidth = 4; trace();
-    const mark = (x,y,fill) => { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill(); };
-    mark(toX(pts[0].lng), toY(pts[0].lat), c.start);
-    mark(toX(pts[pts.length-1].lng), toY(pts[pts.length-1].lat), c.finish);
-    // Attribution (required for OSM/CARTO tiles)
-    ctx.font = '9px -apple-system,system-ui,sans-serif';
-    const attr = '© OpenStreetMap, © CARTO';
-    const tw = ctx.measureText(attr).width;
-    ctx.fillStyle = c.light ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
-    ctx.fillRect(cssW - tw - 10, cssH - 14, tw + 10, 14);
-    ctx.fillStyle = c.light ? '#555' : '#bbb';
-    ctx.textBaseline = 'bottom'; ctx.fillText(attr, cssW - tw - 5, cssH - 3);
-    ctx.textBaseline = 'alphabetic';
-    ctx.restore();
-  };
+  const toX = lng => mercX(lng,z) - cx + cssW/2;
+  const toY = lat => mercY(lat,z) - cy + cssH/2;
+  const drawRoute = () => paintRoute(ctx, cssW, cssH, pts, toX, toY, c, 4);
   drawRoute();   // show the route immediately, even before/without tiles
 
   // Fetch and draw the tiles covering the viewport; redraw the route over each.
@@ -3627,10 +3661,147 @@ function renderDetailMap(log, elId) {
 
 // If the map is on screen when the connection returns, reload its tiles.
 window.addEventListener('online', () => {
-  if(!_detailMapLog) return;
   const vis = id => { const e = document.getElementById(id); return e && e.classList.contains('visible'); };
-  if(vis('detail-overlay') || vis('analytics-overlay')) renderDetailMap(_detailMapLog, _detailMapEl);
+  if(MAPV.open) fullMapRender();
+  if(_detailMapLog && (vis('detail-overlay') || vis('analytics-overlay'))) renderDetailMap(_detailMapLog, _detailMapEl);
 });
+
+// ── Full-screen, pan/pinch-zoomable map ────────────────────────────────────
+const MAPV = { open:false, log:null, z:15, cx:0, cy:0, cw:0, ch:0, token:0, raf:0,
+               drag:null, pinch:null, snap:null, lastTap:0 };
+
+function openFullMap(log){
+  const pts = (log && log.gpsPositions) || [];
+  if(pts.length < 2) return;
+  const cv = document.getElementById('map-full-canvas');
+  if(!MAPV.bound){
+    cv.addEventListener('touchstart', fullMapTouchStart, {passive:false});
+    cv.addEventListener('touchmove',  fullMapTouchMove,  {passive:false});
+    cv.addEventListener('touchend',   fullMapTouchEnd);
+    cv.addEventListener('touchcancel',fullMapTouchEnd);
+    MAPV.bound = true;
+  }
+  MAPV.log = log; MAPV.open = true;
+  document.getElementById('map-overlay').classList.add('visible');
+  fullMapSize();
+  fullMapFit();
+  fullMapRender();
+}
+function closeFullMap(){ MAPV.open = false; document.getElementById('map-overlay').classList.remove('visible'); }
+
+function fullMapSize(){
+  const canvas = document.getElementById('map-full-canvas');
+  const r = canvas.getBoundingClientRect();
+  MAPV.cw = r.width; MAPV.ch = r.height;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width*dpr); canvas.height = Math.round(r.height*dpr);
+}
+function fullMapFit(){
+  const pts = MAPV.log.gpsPositions;
+  const lats = pts.map(p=>p.lat), lngs = pts.map(p=>p.lng);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+  MAPV.z = fitZoom(minLng, maxLng, minLat, maxLat, MAPV.cw, MAPV.ch, 40, 18);
+  MAPV.cx = (mercX(minLng,MAPV.z) + mercX(maxLng,MAPV.z)) / 2;
+  MAPV.cy = (mercY(minLat,MAPV.z) + mercY(maxLat,MAPV.z)) / 2;
+}
+function fullMapRecenter(){ fullMapFit(); fullMapRender(); }
+
+function fullMapRender(){
+  if(!MAPV.open || !MAPV.log) return;
+  const canvas = document.getElementById('map-full-canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const c = mapColors(), cw = MAPV.cw, ch = MAPV.ch, z = MAPV.z, cx = MAPV.cx, cy = MAPV.cy;
+  const pts = MAPV.log.gpsPositions;
+  const toX = lng => mercX(lng,z) - cx + cw/2, toY = lat => mercY(lat,z) - cy + ch/2;
+  const token = ++MAPV.token;
+  ctx.fillStyle = c.bg(); ctx.fillRect(0,0,cw,ch);
+  const drawRoute = () => paintRoute(ctx, cw, ch, pts, toX, toY, c, 6);
+  drawRoute();
+  const n = Math.pow(2,z);
+  const tx0=Math.floor((cx-cw/2)/256), tx1=Math.floor((cx+cw/2)/256);
+  const ty0=Math.floor((cy-ch/2)/256), ty1=Math.floor((cy+ch/2)/256);
+  for(let tx=tx0; tx<=tx1; tx++) for(let ty=ty0; ty<=ty1; ty++){
+    if(tx<0||ty<0||tx>=n||ty>=n) continue;
+    const img = new Image();
+    const dx = tx*256 - cx + cw/2, dy = ty*256 - cy + ch/2;
+    img.onload = () => { if(token!==MAPV.token) return; ctx.drawImage(img,dx,dy,256,256); drawRoute(); };
+    img.onerror = () => {};
+    img.src = tileURL(z, tx, ty, !c.light);
+  }
+}
+function fullMapRenderThrottled(){
+  if(MAPV.raf) return;
+  MAPV.raf = requestAnimationFrame(()=>{ MAPV.raf = 0; fullMapRender(); });
+}
+
+// Zoom by `dz` levels, keeping the (fx,fy) screen point fixed on the same place.
+function fullMapZoomAt(dz, fx, fy){
+  const nz = Math.max(10, Math.min(19, MAPV.z + dz));
+  if(nz === MAPV.z) return;
+  const wx = MAPV.cx + (fx - MAPV.cw/2), wy = MAPV.cy + (fy - MAPV.ch/2);
+  const lng = mercLng(wx, MAPV.z), lat = mercLat(wy, MAPV.z);
+  MAPV.z = nz;
+  MAPV.cx = mercX(lng,nz) - (fx - MAPV.cw/2);
+  MAPV.cy = mercY(lat,nz) - (fy - MAPV.ch/2);
+  fullMapRender();
+}
+function fullMapZoom(dz){ fullMapZoomAt(dz, MAPV.cw/2, MAPV.ch/2); }
+
+// Touch handling: 1 finger = pan, 2 fingers = pinch-zoom, double-tap = zoom in.
+function fullMapTouchStart(e){
+  const canvas = document.getElementById('map-full-canvas');
+  const r = canvas.getBoundingClientRect();
+  if(e.touches.length === 1){
+    MAPV.pinch = null;
+    MAPV.drag = { x:e.touches[0].clientX, y:e.touches[0].clientY };
+    const now = Date.now();
+    if(now - MAPV.lastTap < 300){ fullMapZoomAt(1, e.touches[0].clientX-r.left, e.touches[0].clientY-r.top); MAPV.lastTap = 0; }
+    else MAPV.lastTap = now;
+  } else if(e.touches.length === 2){
+    MAPV.drag = null;
+    const [a,b] = e.touches;
+    MAPV.pinch = {
+      dist: Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY),
+      mx: (a.clientX+b.clientX)/2 - r.left,
+      my: (a.clientY+b.clientY)/2 - r.top,
+    };
+    const src = document.getElementById('map-full-canvas');
+    const snap = document.createElement('canvas'); snap.width = src.width; snap.height = src.height;
+    snap.getContext('2d').drawImage(src, 0, 0);
+    MAPV.snap = snap;
+  }
+  e.preventDefault();
+}
+function fullMapTouchMove(e){
+  if(MAPV.pinch && e.touches.length === 2){
+    const [a,b] = e.touches;
+    const d = Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY);
+    const scale = d / MAPV.pinch.dist;
+    const canvas = document.getElementById('map-full-canvas'), ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle = mapColors().bg(); ctx.fillRect(0,0,MAPV.cw,MAPV.ch);
+    ctx.translate(MAPV.pinch.mx, MAPV.pinch.my); ctx.scale(scale,scale); ctx.translate(-MAPV.pinch.mx, -MAPV.pinch.my);
+    if(MAPV.snap) ctx.drawImage(MAPV.snap, 0,0, MAPV.cw, MAPV.ch);   // cheap visual feedback
+    MAPV.pinch.scale = scale;
+  } else if(MAPV.drag && e.touches.length === 1){
+    const dx = e.touches[0].clientX - MAPV.drag.x, dy = e.touches[0].clientY - MAPV.drag.y;
+    MAPV.drag.x = e.touches[0].clientX; MAPV.drag.y = e.touches[0].clientY;
+    MAPV.cx -= dx; MAPV.cy -= dy;
+    fullMapRenderThrottled();
+  }
+  e.preventDefault();
+}
+function fullMapTouchEnd(e){
+  if(MAPV.pinch && e.touches.length < 2){
+    const dz = Math.round(Math.log2(MAPV.pinch.scale || 1));
+    const { mx, my } = MAPV.pinch; MAPV.pinch = null; MAPV.snap = null;
+    if(dz !== 0) fullMapZoomAt(dz, mx, my); else fullMapRender();
+  }
+  if(e.touches.length === 0) MAPV.drag = null;
+}
 
 // Build the per-lap pace data for a run using its ACTUAL time & distance.
 // (Old logs without lapTimes fall back to the planned pace.)
