@@ -394,6 +394,10 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .ach-badge .ach-text{font-size:14px;font-weight:700;}
 .ach-badge .ach-sub{font-size:12px;color:var(--text2);font-weight:500;margin-top:2px;}
 .an-footer{padding:8px 16px calc(16px + env(safe-area-inset-bottom,0px));}
+.an-header-top{display:flex;justify-content:space-between;align-items:center;}
+.an-share-btn{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:14px;font-weight:700;padding:7px 14px 7px 12px;border-radius:100px;cursor:pointer;}
+.an-share-btn svg{width:17px;height:17px;}
+.an-share-btn:active{background:var(--surface2);}
 
 /* HEALTH / BODY CHECK-IN */
 .hl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 12px;padding:16px;}
@@ -856,9 +860,14 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 <!-- POST-RUN ANALYTICS -->
 <div id="analytics-overlay">
   <div class="analytics-header">
-    <button class="back-btn" onclick="dismissAnalytics()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg><span id="an-back-label">Back to Home</span>
-    </button>
+    <div class="an-header-top">
+      <button class="back-btn" onclick="dismissAnalytics()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg><span id="an-back-label">Back to Home</span>
+      </button>
+      <button class="an-share-btn" onclick="shareRun(ANALYTICS_LOG_ID)" aria-label="Share run">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>Share
+      </button>
+    </div>
     <div class="workout-type-pill" id="an-type">Run</div>
     <div class="workout-title" id="an-title">Run Analytics</div>
     <div class="workout-meta" id="an-meta"></div>
@@ -2734,6 +2743,110 @@ function dismissAnalytics(){
   document.getElementById('analytics-overlay').classList.remove('visible');
   document.getElementById('complete-overlay').classList.remove('visible');
   showScreen(ANALYTICS_RETURN || 'home-screen');
+}
+
+// ── Share a run as an image card (route map + stats), like Strava ──────────
+function shareTruncate(s, n){ s=String(s||''); return s.length>n ? s.slice(0,n-1)+'…' : s; }
+
+// Draw the whole-canvas share card and return it.
+function drawShareCard(log){
+  const S = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = S; canvas.height = S;
+  const ctx = canvas.getContext('2d');
+  const col = mapColors();
+  const scrim = col.light ? '255,255,255' : '10,10,15';
+  const ink = col.light ? '#16161D' : '#F0F0F8';
+  const sub = col.light ? '#5C5C70' : '#8A8AA6';
+
+  // Land + faint street grid
+  ctx.fillStyle = col.bg(); ctx.fillRect(0,0,S,S);
+  ctx.strokeStyle = col.road; ctx.globalAlpha = col.light ? 0.5 : 0.32; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for(let x=0;x<=S;x+=90){ ctx.moveTo(x,0); ctx.lineTo(x,S); }
+  for(let y=0;y<=S;y+=90){ ctx.moveTo(0,y); ctx.lineTo(S,y); }
+  ctx.stroke(); ctx.globalAlpha = 1;
+
+  // Route
+  const pts = log.gpsPositions || [];
+  if(pts.length >= 2){
+    const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
+    const minLat=Math.min(...lats),maxLat=Math.max(...lats),minLng=Math.min(...lngs),maxLng=Math.max(...lngs);
+    const dLng=(maxLng-minLng)||1e-4, dLat=(maxLat-minLat)||1e-4;
+    const padX=130, top=190, bottom=S*0.60, w=S-padX*2, h=bottom-top;
+    const s=Math.min(w/dLng, h/dLat);
+    const offX=padX+(w-dLng*s)/2, offY=top+(h-dLat*s)/2;
+    const toX=lng=>(lng-minLng)*s+offX, toY=lat=>(maxLat-lat)*s+offY;
+    const trace=()=>{ ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
+    ctx.strokeStyle=col.route; ctx.lineJoin='round'; ctx.lineCap='round';
+    ctx.globalAlpha=0.25; ctx.lineWidth=30; trace();
+    ctx.globalAlpha=1;    ctx.lineWidth=13; trace();
+    const mark=(x,y,fill)=>{ ctx.fillStyle=col.bg(); ctx.beginPath(); ctx.arc(x,y,27,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,17,0,Math.PI*2); ctx.fill(); };
+    mark(toX(pts[0].lng),toY(pts[0].lat),col.start);
+    mark(toX(pts[pts.length-1].lng),toY(pts[pts.length-1].lat),col.finish);
+  }
+
+  // Scrims for text legibility
+  let g = ctx.createLinearGradient(0,0,0,S*0.26);
+  g.addColorStop(0,`rgba(${scrim},0.9)`); g.addColorStop(1,`rgba(${scrim},0)`);
+  ctx.fillStyle=g; ctx.fillRect(0,0,S,S*0.26);
+  g = ctx.createLinearGradient(0,S*0.5,0,S);
+  g.addColorStop(0,`rgba(${scrim},0)`); g.addColorStop(1,`rgba(${scrim},0.95)`);
+  ctx.fillStyle=g; ctx.fillRect(0,S*0.5,S,S*0.5);
+
+  // Title + date (top)
+  ctx.textBaseline='top';
+  ctx.fillStyle=ink; ctx.font='800 54px -apple-system,system-ui,sans-serif';
+  ctx.fillText(shareTruncate(log.name || 'Run', 20), 60, 58);
+  ctx.fillStyle=sub; ctx.font='600 30px -apple-system,system-ui,sans-serif';
+  const dateStr = log.fullDate ? new Date(log.fullDate).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'}) : '';
+  ctx.fillText(dateStr, 62, 124);
+
+  // Stats (bottom)
+  const rec = isRecovery(log), hasRoute = pts.length>=2;
+  const stats = [
+    ['Distance', (rec && !hasRoute) ? '—' : fmtShort(log.distKm||0)],
+    ['Time', log.timeStr || '—'],
+    ['Pace', log.paceSecPerKm>0 ? fmtPace(log.paceSecPerKm)+' '+paceLabel() : '—'],
+  ];
+  const colW=(S-120)/3, baseY=S-96;
+  ctx.textBaseline='alphabetic';
+  stats.forEach((st,i)=>{
+    const x=60+colW*i;
+    ctx.fillStyle=col.route; ctx.font='800 56px -apple-system,system-ui,sans-serif';
+    ctx.fillText(st[1], x, baseY);
+    ctx.fillStyle=sub; ctx.font='700 24px -apple-system,system-ui,sans-serif';
+    ctx.fillText(st[0].toUpperCase(), x, baseY+36);
+  });
+
+  // Brand (top-right)
+  ctx.textAlign='right'; ctx.textBaseline='top';
+  ctx.fillStyle=ink; ctx.font='800 36px -apple-system,system-ui,sans-serif';
+  ctx.fillText('🏃 Pacer', S-60, 66);
+  ctx.textAlign='left';
+
+  return canvas;
+}
+
+function shareRun(id){
+  const log = APP.logs.find(l=>l.id===id);
+  if(!log){ return; }
+  const canvas = drawShareCard(log);
+  canvas.toBlob((blob)=>{
+    if(!blob) return;
+    const fname = 'pacer-' + (log.name||'run').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'') + '.png';
+    const file = new File([blob], fname, { type:'image/png' });
+    const data = { files:[file], title:'My Pacer run', text:`${log.name||'Run'} — ${fmtShort(log.distKm||0)} in ${log.timeStr||''} 🏃` };
+    if (navigator.canShare && navigator.canShare({files:[file]}) && navigator.share){
+      navigator.share(data).catch(()=>{});   // user cancel is fine
+      return;
+    }
+    // Fallback: download the image
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 1500);
+  }, 'image/png');
 }
 
 function renderFeel(log){

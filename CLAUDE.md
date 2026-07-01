@@ -93,7 +93,10 @@ session is productive immediately.
   editable on past runs), route map, pace splits, **lap breakdown**, comparison, PBs.
   `renderPaceChart`/`renderDetailMap`/`renderDetailLaps` all take an optional element id so
   they render into the analytics overlay's `an-*` nodes. `openRunDetail` is a thin alias to
-  it; the old `#detail-overlay` markup is unused/dead (left in place for now).
+  it; the old `#detail-overlay` markup is unused/dead (left in place for now). A **Share**
+  button (header) → `shareRun(id)` renders a 1080×1080 image card via `drawShareCard` (route
+  + stats + branding, theme-coloured) and uses `navigator.share({files})` (native share
+  sheet on iOS/HTTPS), falling back to a PNG download where unsupported.
 - **Pace chart** (`renderPaceChart`/`drawPaceChart`, keyed by elId in `PACE_CHARTS`):
   y-axis = PACE, bar height ∝ speed (taller = faster); tap a bar for that lap's pace +
   duration. When a workout has both running and walking laps (`isWalkLap`) it shows
