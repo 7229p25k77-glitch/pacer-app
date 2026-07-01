@@ -102,8 +102,14 @@ session is productive immediately.
   duration. When a workout has both running and walking laps (`isWalkLap`) it shows
   Running/Walking **tabs** over one chart (`selectPaceTab`/`selectPaceBar`), each with its
   own average; bars coloured `pc-run`/`pc-walk`. **Route map** (`renderDetailMap`):
-  theme-aware `<canvas>` (reads CSS vars, repaints on theme toggle) with a locally drawn
-  street backdrop — no tiles, offline.
+  theme-aware `<canvas>` that draws real map tiles behind the route — CARTO `light_all`/
+  `dark_all` basemaps (OSM data, `@2x`), Web-Mercator projected (`mercX`/`mercY`/`tileURL`)
+  so the route aligns to real streets; zoom auto-fit to the route bbox. Tiles load async
+  (route drawn first, redrawn over each tile; stale draws guarded by `_mapRenderToken`).
+  **This is the one part that uses the network** — offline it just shows the loading bg
+  behind the route; it reloads on the `online` event and the network-first SW caches viewed
+  tiles. Attribution ("© OpenStreetMap, © CARTO") is required — keep it. NOTE: the share
+  card (`drawShareCard`) still uses a locally-drawn grid (synchronous/offline).
 - **Comparison** (`renderRunComparison`): two blocks — *vs your last* comparable session
   (`findPrevRun`) and *vs your recent average* (last ≤10, `avgOf`). Titles/route adapt for
   recovery; PBs keep runs and recovery in separate "leagues" (`isRecovery`/`logNoun`).

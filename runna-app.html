@@ -3528,87 +3528,109 @@ function mapColors(){
   };
 }
 
+// Web Mercator world-pixel coords (256-px tile grid) at a given zoom.
+function mercWorld(z){ return 256 * Math.pow(2, z); }
+function mercX(lng, z){ return (lng + 180) / 360 * mercWorld(z); }
+function mercY(lat, z){
+  const s = Math.max(-0.9999, Math.min(0.9999, Math.sin(lat * Math.PI/180)));
+  return (0.5 - Math.log((1+s)/(1-s)) / (4*Math.PI)) * mercWorld(z);
+}
+// CARTO basemap (OpenStreetMap data), light/dark to match the theme. @2x = retina.
+function tileURL(z, x, y, dark){
+  const sub = ['a','b','c','d'][(x + y) & 3];
+  return `https://${sub}.basemaps.cartocdn.com/${dark ? 'dark_all' : 'light_all'}/${z}/${x}/${y}@2x.png`;
+}
+let _mapRenderToken = 0;   // guards against stale async tile draws
+
 function renderDetailMap(log, elId) {
   elId = elId || 'detail-map';
   _detailMapLog = log; _detailMapEl = elId;
-  const el=document.getElementById(elId);
-  const pts=log.gpsPositions||[];
-  if(pts.length<2){
-    el.innerHTML=`<div class="map-placeholder"><span>🗺️</span><p>No GPS data recorded</p><p style="font-size:11px;margin-top:4px;">Grant location permission before running</p></div>`;
+  const el = document.getElementById(elId);
+  if(!el) return;
+  const pts = log.gpsPositions || [];
+  if(pts.length < 2){
+    el.innerHTML = `<div class="map-placeholder"><span>🗺️</span><p>No GPS data recorded</p><p style="font-size:11px;margin-top:4px;">Grant location permission before running</p></div>`;
     return;
   }
   const c = mapColors();
-  const cssW = el.offsetWidth||340, cssH = 200;
+  const cssW = el.offsetWidth || 340, cssH = 200;
   const dpr = window.devicePixelRatio || 1;
-  const canvas=document.createElement('canvas');
-  canvas.style.width=cssW+'px'; canvas.style.height=cssH+'px';
-  canvas.width=Math.round(cssW*dpr); canvas.height=Math.round(cssH*dpr);
-  el.innerHTML=''; el.appendChild(canvas);
-  const ctx=canvas.getContext('2d');
-  ctx.scale(dpr,dpr);
+  const canvas = document.createElement('canvas');
+  canvas.style.width = cssW+'px'; canvas.style.height = cssH+'px';
+  canvas.width = Math.round(cssW*dpr); canvas.height = Math.round(cssH*dpr);
+  el.innerHTML = ''; el.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const token = ++_mapRenderToken;
 
-  // ── Solid "land" with a road network drawn locally (no network) ──
-  // Roads, lanes and hiking paths are all the same hue, separated by shade
-  // (alpha over the solid land) + width + line style, tuned per theme.
-  ctx.fillStyle=c.bg(); ctx.fillRect(0,0,cssW,cssH);
-  ctx.strokeStyle=c.road; ctx.lineJoin='round'; ctx.lineCap='round';
-  const A = c.light ? {lane:0.55, major:0.95, path:0.75}   // darker shades on light land
-                    : {lane:0.40, major:0.80, path:0.55};  // lighter shades on dark land
+  // Route bounding box → pick the most detailed zoom that still fits the canvas.
+  const lats = pts.map(p=>p.lat), lngs = pts.map(p=>p.lng);
+  const minLat=Math.min(...lats), maxLat=Math.max(...lats), minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
+  const pad = 24;
+  let z = 18;
+  for(; z > 2; z--){
+    const w = mercX(maxLng,z) - mercX(minLng,z);
+    const h = mercY(minLat,z) - mercY(maxLat,z);
+    if(w <= (cssW - pad*2) && h <= (cssH - pad*2)) break;
+  }
+  const cx = (mercX(minLng,z) + mercX(maxLng,z)) / 2;   // world-pixel centre of the route
+  const cy = (mercY(minLat,z) + mercY(maxLat,z)) / 2;
+  const toX = lng => mercX(lng,z) - cx + cssW/2;
+  const toY = lat => mercY(lat,z) - cy + cssH/2;
 
-  // minor lanes — thin, faintest shade, irregular spacing so it doesn't read as graph paper
-  ctx.setLineDash([]); ctx.lineWidth=1.5; ctx.globalAlpha=A.lane;
-  ctx.beginPath();
-  [0.12,0.27,0.61,0.78,0.92].forEach(fx=>{ const x=cssW*fx; ctx.moveTo(x,0); ctx.lineTo(x,cssH); });
-  [0.22,0.45,0.9].forEach(fy=>{ const y=cssH*fy; ctx.moveTo(0,y); ctx.lineTo(cssW,y); });
-  ctx.stroke();
+  // Loading background (also the offline look until tiles arrive / on failure)
+  ctx.fillStyle = c.bg(); ctx.fillRect(0,0,cssW,cssH);
 
-  // major roads — thick, strongest shade
-  ctx.lineWidth=5; ctx.globalAlpha=A.major;
-  ctx.beginPath();
-  ctx.moveTo(0,cssH*0.60); ctx.lineTo(cssW,cssH*0.33);   // diagonal avenue
-  ctx.moveTo(cssW*0.46,0); ctx.lineTo(cssW*0.46,cssH);   // main through-road
-  ctx.stroke();
-
-  // hiking path — dashed, mid shade, gently curved
-  ctx.lineWidth=2; ctx.globalAlpha=A.path; ctx.setLineDash([5,5]);
-  ctx.beginPath();
-  ctx.moveTo(cssW*0.04,cssH*0.96);
-  ctx.bezierCurveTo(cssW*0.30,cssH*0.72, cssW*0.55,cssH*0.97, cssW*0.96,cssH*0.52);
-  ctx.stroke();
-  ctx.setLineDash([]); ctx.globalAlpha=1;
-
-  // ── Route (aspect-ratio preserved so it isn't distorted over the grid) ──
-  const lats=pts.map(p=>p.lat), lngs=pts.map(p=>p.lng);
-  const minLat=Math.min(...lats), maxLat=Math.max(...lats);
-  const minLng=Math.min(...lngs), maxLng=Math.max(...lngs);
-  const pad=24;
-  const dLng=(maxLng-minLng)||0.0001, dLat=(maxLat-minLat)||0.0001;
-  const s=Math.min((cssW-pad*2)/dLng,(cssH-pad*2)/dLat);
-  const offX=(cssW-dLng*s)/2, offY=(cssH-dLat*s)/2;
-  const toX=lng=>(lng-minLng)*s+offX;
-  const toY=lat=>(maxLat-lat)*s+offY;
-  const trace=()=>{ ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
-  ctx.strokeStyle=c.route; ctx.lineJoin='round'; ctx.lineCap='round';
-  ctx.globalAlpha=0.25; ctx.lineWidth=9; trace();           // soft glow
-  ctx.globalAlpha=1;    ctx.lineWidth=3.5; trace();          // route line
-
-  // Start/finish markers with a halo so they read over the route
-  const mark=(x,y,fill)=>{ ctx.fillStyle=c.bg(); ctx.beginPath(); ctx.arc(x,y,8,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,5.5,0,Math.PI*2); ctx.fill(); };
-  mark(toX(pts[0].lng),toY(pts[0].lat),c.start);
-  mark(toX(pts[pts.length-1].lng),toY(pts[pts.length-1].lat),c.finish);
-
-  // Legend pills
-  ctx.font='bold 11px -apple-system,system-ui,sans-serif'; ctx.textBaseline='middle';
-  const pill=(x,label,dot)=>{
-    ctx.fillStyle=c.pill; ctx.fillRect(x,8,80,26);
-    ctx.strokeStyle=c.pillBorder; ctx.lineWidth=1; ctx.strokeRect(x+0.5,8.5,79,25);
-    ctx.fillStyle=dot; ctx.beginPath(); ctx.arc(x+14,21,4,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle=c.text; ctx.fillText(label,x+25,22);
+  // The route + markers + attribution, always redrawn on top of the tiles.
+  const drawRoute = () => {
+    ctx.save();
+    ctx.lineJoin='round'; ctx.lineCap='round';
+    const trace = () => { ctx.beginPath(); pts.forEach((p,i)=>{i===0?ctx.moveTo(toX(p.lng),toY(p.lat)):ctx.lineTo(toX(p.lng),toY(p.lat));}); ctx.stroke(); };
+    ctx.strokeStyle = c.light ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.55)';   // halo for contrast on any map
+    ctx.lineWidth = 7; trace();
+    ctx.strokeStyle = c.route; ctx.lineWidth = 4; trace();
+    const mark = (x,y,fill) => { ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,7,0,Math.PI*2); ctx.fill(); ctx.fillStyle=fill; ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.fill(); };
+    mark(toX(pts[0].lng), toY(pts[0].lat), c.start);
+    mark(toX(pts[pts.length-1].lng), toY(pts[pts.length-1].lat), c.finish);
+    // Attribution (required for OSM/CARTO tiles)
+    ctx.font = '9px -apple-system,system-ui,sans-serif';
+    const attr = '© OpenStreetMap, © CARTO';
+    const tw = ctx.measureText(attr).width;
+    ctx.fillStyle = c.light ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.5)';
+    ctx.fillRect(cssW - tw - 10, cssH - 14, tw + 10, 14);
+    ctx.fillStyle = c.light ? '#555' : '#bbb';
+    ctx.textBaseline = 'bottom'; ctx.fillText(attr, cssW - tw - 5, cssH - 3);
+    ctx.textBaseline = 'alphabetic';
+    ctx.restore();
   };
-  pill(8,'Start',c.start);
-  pill(cssW-88,'Finish',c.finish);
-  ctx.textBaseline='alphabetic';
+  drawRoute();   // show the route immediately, even before/without tiles
+
+  // Fetch and draw the tiles covering the viewport; redraw the route over each.
+  const nTiles = Math.pow(2, z);
+  const tx0 = Math.floor((cx - cssW/2)/256), tx1 = Math.floor((cx + cssW/2)/256);
+  const ty0 = Math.floor((cy - cssH/2)/256), ty1 = Math.floor((cy + cssH/2)/256);
+  for(let tx = tx0; tx <= tx1; tx++){
+    for(let ty = ty0; ty <= ty1; ty++){
+      if(tx < 0 || ty < 0 || tx >= nTiles || ty >= nTiles) continue;
+      const img = new Image();
+      const dx = tx*256 - cx + cssW/2, dy = ty*256 - cy + cssH/2;
+      img.onload = () => {
+        if(token !== _mapRenderToken) return;          // a newer render superseded us
+        ctx.drawImage(img, dx, dy, 256, 256);
+        drawRoute();                                    // keep the route on top
+      };
+      img.onerror = () => {};                            // offline / tile missing → keep loading bg
+      img.src = tileURL(z, tx, ty, !c.light);
+    }
+  }
 }
+
+// If the map is on screen when the connection returns, reload its tiles.
+window.addEventListener('online', () => {
+  if(!_detailMapLog) return;
+  const vis = id => { const e = document.getElementById(id); return e && e.classList.contains('visible'); };
+  if(vis('detail-overlay') || vis('analytics-overlay')) renderDetailMap(_detailMapLog, _detailMapEl);
+});
 
 // Build the per-lap pace data for a run using its ACTUAL time & distance.
 // (Old logs without lapTimes fall back to the planned pace.)
