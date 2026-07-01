@@ -317,6 +317,27 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 #phase-bar{height:100%;background:var(--accent);border-radius:3px;width:0%;transition:width 0.5s linear;}
 .timer-segment-label{font-size:12px;color:var(--text2);margin-top:8px;font-weight:500;}
 .timer-gps{font-size:11px;color:var(--text3);margin-top:6px;}
+/* In-run progress diagram: current-lap bar + whole-run track */
+#run-diagram{width:100%;margin-top:24px;}
+.lap-now-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:7px;}
+.lap-now-name{font-size:13px;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:var(--text);}
+.lap-now-left{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;}
+.lap-now-track{width:100%;height:14px;background:var(--surface2);border-radius:7px;overflow:hidden;}
+.lap-now-fill{height:100%;border-radius:7px;width:0%;transition:width 1s linear;}
+.lap-now-fill.seg-run{background:var(--accent);}
+.lap-now-fill.seg-walk{background:var(--amber);}
+.run-track-wrap{width:100%;margin-top:16px;}
+.run-track{display:flex;gap:3px;width:100%;height:10px;}
+.rt-seg{position:relative;height:100%;border-radius:3px;background:var(--surface2);overflow:hidden;min-width:3px;}
+.rt-seg.seg-run.done{background:var(--accent);}
+.rt-seg.seg-walk.done{background:var(--amber);}
+.rt-seg.seg-run.upcoming{background:var(--accent-dim);}
+.rt-seg.seg-walk.upcoming{background:var(--amber-dim);}
+.rt-seg.current{background:var(--surface2);box-shadow:0 0 0 2px var(--text);}
+.rt-seg-fill{position:absolute;inset:0 auto 0 0;width:0%;border-radius:3px;background:var(--accent);transition:width 1s linear;}
+.rt-seg.seg-walk .rt-seg-fill{background:var(--amber);}
+.rt-ends{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-top:7px;}
+.rt-ends .rt-mid{color:var(--text2);font-weight:700;}
 .timer-controls{display:flex;gap:20px;align-items:center;margin-top:32px;}
 .timer-btn{border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
 .btn-skip{background:var(--surface2);color:var(--text);width:60px;height:60px;font-size:20px;}
@@ -720,9 +741,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   <div class="timer-dist" id="timer-dist">0.00</div>
   <div class="timer-pace" id="timer-pace">— avg pace</div>
   <div class="timer-gps" id="timer-gps">📍 Waiting for GPS...</div>
-  <div class="timer-phase-labels" id="timer-phase-labels"></div>
-  <div class="timer-progress-track"><div id="phase-bar"></div></div>
-  <div class="timer-segment-label" id="timer-seg-label">Phase 1</div>
+  <div id="run-diagram">
+    <div class="lap-now">
+      <div class="lap-now-head"><span class="lap-now-name" id="lap-now-name">Lap 1</span><span class="lap-now-left" id="lap-now-left">0:00 left</span></div>
+      <div class="lap-now-track"><div class="lap-now-fill seg-run" id="lap-now-fill"></div></div>
+    </div>
+    <div class="run-track-wrap">
+      <div class="run-track" id="run-track"></div>
+      <div class="rt-ends"><span>Start</span><span class="rt-mid" id="rt-mid"></span><span>Finish</span></div>
+    </div>
+  </div>
+  <div class="timer-segment-label" id="timer-seg-label" style="display:none;">Phase 1</div>
   <div class="timer-controls">
     <button class="timer-btn btn-stop-run" onclick="promptStopRun()">✕</button>
     <button class="timer-btn btn-pause" id="pause-btn" onclick="togglePause()">⏸</button>
@@ -2225,9 +2254,8 @@ function startRun(runOverride) {
   t.spokenMidLap= new Array(t.phases.length).fill(false);
   t.spokenCountdown = new Array(t.phases.length).fill(false);
 
-  // Phase labels bar
-  const labels = run.laps.slice(0,5).map(l => l.name.split(' ')[0]);
-  document.getElementById('timer-phase-labels').innerHTML = labels.map(l => `<span>${l}</span>`).join('');
+  const dg = document.getElementById('run-diagram');
+  if (dg) dg.dataset.bp = '';   // force the whole-run track to rebuild for this run
 
   document.getElementById('pause-btn').textContent = '⏸';
   document.getElementById('timer-dist').textContent = '0.00 ' + unitLabel();
@@ -2422,8 +2450,7 @@ function resumeActiveRun() {
   t.lastTickMs=snap.savedAt;                 // catch-up anchor
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
   APP.freeRun=!!snap.freeRun; APP.recovery=snap.recovery||null; APP.currentWorkout=snap.currentWorkout||null;
-  const labels=t.phases.slice(0,5).map(l=>(l.name||l.label||'').split(' ')[0]);
-  document.getElementById('timer-phase-labels').innerHTML=labels.map(l=>`<span>${l}</span>`).join('');
+  const dg=document.getElementById('run-diagram'); if(dg) dg.dataset.bp='';   // rebuild the track for the resumed run
   document.getElementById('pause-btn').textContent=t.paused?'▶':'⏸';
   document.getElementById('run-timer').classList.add('visible');
   updateTimerUI();
@@ -2442,12 +2469,68 @@ function updateTimerUI() {
   const phase = t.phases[t.phaseIndex];
   document.getElementById('timer-phase').textContent = phase?phase.label.slice(0,30):'COMPLETE';
   document.getElementById('timer-seg-label').textContent = APP.recovery ? 'Recovery session — tap Finish when done' : (APP.freeRun ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`);
-  const totalDist = t.phases.reduce((a,p)=>a+p.distKm,0);
-  document.getElementById('phase-bar').style.width = (totalDist>0 ? Math.min(100,(t.distKm/totalDist)*100) : 0)+'%';
+  updateRunDiagram();
   if (t.elapsed>0 && t.distKm>0) {
     const spk = t.elapsed/t.distKm;
     document.getElementById('timer-pace').textContent = fmtPace(spk)+' avg pace';
   }
+}
+
+// Build the whole-run track: one segment per lap, width ∝ its duration,
+// coloured run vs walk, marked done / current / upcoming.
+function buildRunTrack() {
+  const t = APP.timer;
+  const track = document.getElementById('run-track');
+  if (!track) return;
+  track.innerHTML = t.phases.map((p, i) => {
+    const seg   = isWalkLap(p) ? 'seg-walk' : 'seg-run';
+    const state = i < t.phaseIndex ? 'done' : (i === t.phaseIndex ? 'current' : 'upcoming');
+    const fill  = state === 'current' ? '<div class="rt-seg-fill"></div>' : '';
+    return `<div class="rt-seg ${seg} ${state}" style="flex-grow:${Math.max(1, p.estSecs || 1)}">${fill}</div>`;
+  }).join('');
+}
+
+// Update the current-lap bar + whole-run track every tick.
+function updateRunDiagram() {
+  const t = APP.timer;
+  const dg = document.getElementById('run-diagram');
+  const seg = document.getElementById('timer-seg-label');
+  if (!dg) return;
+  // Free run / recovery / single-lap sessions have no lap structure to show.
+  if (APP.freeRun || APP.recovery || !t.phases || t.phases.length <= 1) {
+    dg.style.display = 'none';
+    if (seg) seg.style.display = '';
+    return;
+  }
+  dg.style.display = '';
+  if (seg) seg.style.display = 'none';
+
+  const cp = t.phases[t.phaseIndex];
+  if (!cp) return;
+  const est   = cp.estSecs || 1;
+  const inLap = Math.min(t.phaseElapsed, est);
+  const pct   = Math.min(100, inLap / est * 100);
+  const walk  = isWalkLap(cp);
+
+  // Current-lap bar
+  document.getElementById('lap-now-name').textContent = `${walk ? 'Walk' : 'Run'} · Lap ${t.phaseIndex + 1} of ${t.phases.length}`;
+  document.getElementById('lap-now-left').textContent = fmtTime(Math.max(0, est - t.phaseElapsed)) + ' left';
+  const lf = document.getElementById('lap-now-fill');
+  lf.style.width = pct + '%';
+  lf.className = 'lap-now-fill ' + (walk ? 'seg-walk' : 'seg-run');
+
+  // Whole-run track — rebuild only when the current lap changes
+  const key = t.phaseIndex + '/' + t.phases.length;
+  if (dg.dataset.bp !== key) { buildRunTrack(); dg.dataset.bp = key; }
+  const curFill = document.querySelector('#run-track .rt-seg.current .rt-seg-fill');
+  if (curFill) curFill.style.width = pct + '%';
+
+  // Overall position by cumulative time
+  const total = t.phases.reduce((a, p) => a + (p.estSecs || 0), 0);
+  let done = inLap;
+  for (let i = 0; i < t.phaseIndex; i++) done += t.phases[i].estSecs || 0;
+  const overall = total > 0 ? Math.min(100, Math.round(done / total * 100)) : 0;
+  document.getElementById('rt-mid').textContent = `Lap ${t.phaseIndex + 1}/${t.phases.length} · ${overall}%`;
 }
 
 function toggleMute() {

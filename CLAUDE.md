@@ -60,7 +60,11 @@ session is productive immediately.
   **Wake Lock** (`requestWakeLock`/`releaseWakeLock`) holds the screen on during a run.
   Distance comes from real GPS when locked (`calcGPSDistance`, accuracy-filtered, anchored
   so it never jumps backward), else a pace-based estimate. Each lap's ACTUAL time+distance
-  are recorded (`lapTimes`, `lapDistances`). `finishRun()` logs the run; `promptStopRun()`
+  are recorded (`lapTimes`, `lapDistances`). The run screen shows an in-run diagram
+  (`updateRunDiagram`/`buildRunTrack`): a prominent current-lap time bar + a whole-run
+  segmented track (one segment per phase, width ∝ `estSecs`, run/walk coloured via
+  `isWalkLap`, done/current/upcoming states). Hidden for free/recovery/single-lap sessions
+  (they show `#timer-seg-label` instead). `finishRun()` logs the run; `promptStopRun()`
   → end-run sheet (Save / Discard / Keep Running).
   **iOS web limit:** JS is fully suspended while backgrounded/screen-locked — the timer
   *catches up on return* (time stays correct) but cannot run, fire voice, or read GPS in the
