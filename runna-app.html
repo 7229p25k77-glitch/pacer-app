@@ -3898,7 +3898,7 @@ function drawPaceChart(elId) {
   let bars = '';
   laps.forEach((l, i) => {
     let h;
-    if (l.paceSec > 0 && paceRange > 0) h = Math.round(14 + (maxPace - l.paceSec) / paceRange * 86); // faster → taller
+    if (l.paceSec > 0 && maxPace > 0) h = Math.max(4, Math.round(l.paceSec / maxPace * 100)); // slower → taller, scaled from 0
     else if (l.paceSec > 0) h = 60;   // every lap the same pace
     else h = 10;                      // no pace data for this lap
     const barClass = isWalkLap(l) ? 'pc-walk' : 'pc-run';
@@ -3912,10 +3912,10 @@ function drawPaceChart(elId) {
      ${tabBar}
      <div class="pc-readout">${readout}</div>
      <div class="pc-chart-area">
-       <div class="pc-yaxis"><span>${paces.length?fmtPace(minPace):'—'}</span><span class="pc-yaxis-lbl">pace</span><span>${paces.length?fmtPace(maxPace):'—'}</span></div>
+       <div class="pc-yaxis"><span>${paces.length?fmtPace(maxPace):'—'}</span><span class="pc-yaxis-lbl">pace</span><span>0:00</span></div>
        <div class="pc-bars">${bars}</div>
      </div>
-     <div class="pc-hint">Taller bar = faster pace · tap a lap for pace &amp; time</div>`;
+     <div class="pc-hint">Taller bar = slower pace · tap a lap for pace &amp; time</div>`;
 }
 
 function renderDetailLaps(log, elId) {
