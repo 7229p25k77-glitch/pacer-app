@@ -494,6 +494,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .ex-how{font-size:13px;color:var(--text2);line-height:1.5;margin-top:5px;}
 .injd-redflag{margin:18px 16px;background:var(--warn-dim);border:1px solid var(--warn);border-radius:var(--radius-sm);padding:13px 14px;font-size:13px;line-height:1.5;color:var(--warn);}
 .injd-redflag b{font-weight:800;}
+.injd-src{margin:0 16px;font-size:11px;color:var(--text3);line-height:1.45;}
 
 .info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
 
@@ -3139,93 +3140,134 @@ const PAIN_AREAS = [
   { id:'achilles', label:'Achilles / ankle' },
   { id:'hip',      label:'Hip / outer thigh' },
 ];
-const AREA_INJURY = { heel:['plantar'], shin:['shin'], knee:['runnersknee','itband'], achilles:['achilles'], hip:['itband'] };
+const AREA_INJURY = { heel:['plantar','stressfracture'], shin:['shin','stressfracture'], knee:['runnersknee','itband'], achilles:['achilles','calf'], hip:['itband','stressfracture'] };
 
 const INJURIES = [
   { id:'plantar', emoji:'🦶', name:'Plantar Fasciitis', area:'Foot / heel',
     short:'Stabbing heel pain, worst with your first steps in the morning.',
-    what:'Irritation of the plantar fascia — the thick band of tissue running along the sole of your foot from heel to toes. One of the most common causes of heel pain in runners.',
+    what:'Overload of the plantar fascia — the thick band of tissue along the sole of your foot from heel to toes. Now understood as a load/overuse problem (a “fasciopathy”) more than simple inflammation. One of the most common causes of heel pain in runners.',
     symptoms:['Sharp, stabbing heel pain with the first steps in the morning','Pain that eases as you warm up but returns after running or long standing','Tenderness when you press the inside of the heel'],
-    causes:['Ramping up mileage too quickly','Tight calves and Achilles','Worn-out or unsupportive shoes','Lots of running on hard surfaces'],
+    causes:['Rapid increase in mileage, pace or hills','Reduced calf and foot strength','Tight calves','Long spells standing on hard surfaces or a sudden change of shoes'],
     strengthen:[
-      {name:'Heel raises off a step', how:'On a step, slowly rise onto your toes, then lower the heels below the step level. 3×12–15, slow and controlled.'},
-      {name:'Towel toe scrunches', how:'Sitting, scrunch a towel toward you using only your toes. 3×30 seconds per foot.'},
-      {name:'Short-foot arch lifts', how:'Without curling your toes, gently lift the arch of your foot and hold. 3×10 holds.'},
+      {name:'High-load heel raises (towel under toes)', how:'Put a rolled towel under your toes so they bend up, then do slow single-leg heel raises on a step — about 3 seconds up, 3 seconds down. Every other day, building load over weeks. The best-evidenced exercise for plantar heel pain.'},
+      {name:'Seated calf raises', how:'Slow raises with knees bent to build the deeper calf. 3×12–15.'},
+      {name:'Foot “doming” (short foot)', how:'Without curling the toes, lift the arch and hold. 3×10 — builds the small foot muscles.'},
     ],
     recovery:[
-      {name:'Plantar fascia stretch', how:'Cross one ankle over the other knee and pull your toes back toward your shin until the arch stretches. Hold 30s ×3.'},
-      {name:'Frozen bottle roll', how:'Roll the sole of your foot over a frozen water bottle for 3–5 minutes to ease pain.'},
-      {name:'Calf wall stretch', how:'Hands on a wall, one leg back with knee straight and heel down. Hold 30s each side.'},
+      {name:'Plantar fascia stretch', how:'Cross one ankle over the other knee, pull the toes back toward your shin until the arch stretches. 30s ×3, especially before your first steps of the day.'},
+      {name:'Calf wall stretch', how:'Back leg straight, heel down, lean toward a wall. Hold 30s each side.'},
+      {name:'Frozen bottle roll', how:'Roll the sole over a frozen bottle for a few minutes for short-term pain relief.'},
     ],
-    redflag:'heel pain is severe, has not improved after 2–3 weeks of care, or you feel numbness or tingling in the foot.' },
+    redflag:'heel pain is severe, follows a fall or sudden injury, comes with numbness or tingling, or hasn’t improved after several weeks of loading and backing off your mileage.',
+    src:'Rathleff et al., high-load strength training RCT (Scand J Med Sci Sports, 2015); NHS.' },
 
-  { id:'achilles', emoji:'🦵', name:'Achilles Tendinitis', area:'Ankle / heel',
+  { id:'achilles', emoji:'🦵', name:'Achilles Tendinopathy', area:'Ankle / heel',
     short:'Pain and stiffness in the cord just above your heel.',
-    what:'Overload or inflammation of the Achilles tendon — the strong cord connecting your calf muscles to your heel bone.',
+    what:'Overload of the Achilles tendon — the cord linking your calf to your heel bone. Called “tendinopathy” rather than “tendinitis” because it’s a load/overuse problem, not mainly inflammation.',
     symptoms:['Stiffness and aching just above the heel, especially first thing in the morning','Pain at the start of a run that may ease, then return','Tenderness or slight thickening of the tendon'],
-    causes:['Sudden jumps in mileage, speed or hill work','Tight or weak calf muscles','Flat or worn-out shoes','Stiff calves from lots of sitting'],
+    causes:['Sudden jumps in mileage, speed or hill work','Reduced or weak calf strength','A big change in shoes or heel drop','Stiff calves from lots of sitting'],
     strengthen:[
-      {name:'Eccentric heel drops', how:'On a step, rise on both feet, then slowly lower on the sore side only, dropping the heel below the step. 3×15 — the single most effective Achilles exercise.'},
-      {name:'Bent-knee calf raises', how:'Calf raises with knees slightly bent to target the deeper soleus muscle. 3×15.'},
-      {name:'Seated calf raises', how:'Sitting with weight resting on your knees, push up onto your toes. 3×20.'},
+      {name:'Progressive calf raises (heavy & slow)', how:'Slow calf raises — about 3s up, 3s down — adding weight over weeks (“heavy slow resistance”). Do straight-knee and bent-knee versions, 3×8–15. As effective as eccentric-only work.'},
+      {name:'Eccentric heel drops', how:'Rise on both feet, then lower slowly on the sore side, dropping the heel below a step. 3×15 — a long-proven Achilles exercise.'},
+      {name:'Isometric calf holds', how:'Hold a calf-raise position 30–45s ×5 — can calm tendon pain on sore days.'},
     ],
     recovery:[
-      {name:'Standing calf stretch', how:'Back leg straight, heel down, lean toward a wall. Hold 30s each side.'},
-      {name:'Soleus stretch', how:'Same position but bend the back knee to stretch lower in the calf. Hold 30s each side.'},
-      {name:'Calf foam roll', how:'Roll the calf slowly for 1–2 minutes each side, pausing on tight spots.'},
+      {name:'Reduce, don’t fully rest', how:'Cut back volume and hills rather than stopping completely — tendons respond best to managed load. Keep pain no worse than mild and settling within 24 hours.'},
+      {name:'Gentle calf stretch', how:'Into a mild stretch only — avoid aggressively stretching an irritable tendon. 20–30s each side.'},
+      {name:'Seated (soleus) calf raises', how:'Bent-knee raises target the deeper soleus. 3×15.'},
     ],
-    redflag:'you felt or heard a sudden "pop", cannot push off the foot, or there is severe swelling — this can signal a tendon tear.' },
+    redflag:'you felt or heard a sudden “pop”, feel a gap in the tendon, can’t push off the foot, or there’s marked swelling — this can signal a tendon tear and needs urgent assessment.',
+    src:'Maetz et al., systematic review of loading protocols (2023); Achilles exercise Delphi (2024).' },
 
   { id:'shin', emoji:'🦴', name:'Shin Splints', area:'Lower leg / shin',
     short:'Aching or tenderness along the front/inner shin.',
-    what:'"Shin splints" (medial tibial stress syndrome) is pain along the shinbone from overloaded muscles and connective tissue — very common when starting out or adding mileage.',
+    what:'“Shin splints” (medial tibial stress syndrome) is pain along the shinbone from repetitive overload — a bone-stress reaction that’s very common when starting out or adding mileage.',
     symptoms:['A dull ache or tenderness along the inner edge of the shinbone','Pain at the start of runs that may settle, then worsen with more mileage','Soreness to the touch along the shin'],
-    causes:['Doing too much, too soon','Running on hard surfaces','Weak hips, calves or feet','Old or unsupportive shoes'],
+    causes:['Doing too much, too soon (the biggest factor)','A spike in mileage, pace or hills','Reduced calf and foot strength','Hard surfaces and worn-out shoes'],
     strengthen:[
-      {name:'Toe raises', how:'Stand with heels down and lift your toes/forefoot up toward you. 3×15 to build the front-of-shin muscle.'},
-      {name:'Heel walks', how:'Walk on your heels with toes lifted for 30 seconds, 3 rounds.'},
-      {name:'Calf raises', how:'Slow raises up and down, 3×15, to balance the lower leg.'},
+      {name:'Progressive calf raises', how:'Straight- and bent-knee calf raises, slow. 3×12–15 — stronger calves help the shin absorb load.'},
+      {name:'Foot & toe strength', how:'Toe raises and heel walks (30s ×3), plus arch “doming”, to build the lower leg and foot.'},
+      {name:'Impact progression (when pain-free)', how:'Gradually reintroduce gentle hopping/skipping before ramping runs, to rebuild the shin’s load tolerance.'},
     ],
     recovery:[
-      {name:'Shin & calf stretch', how:'Kneel sitting back on your heels to stretch the front of the shin, then do a standing calf stretch. 30s each.'},
-      {name:'Calf foam roll', how:'Gently roll the calf and the muscles beside the shinbone (not the bone) for 1–2 minutes.'},
-      {name:'Ice after running', how:'Ice the sore area 10–15 minutes after a run if it flares up.'},
+      {name:'Cut back the load (main fix)', how:'Reduce running volume and intensity to a pain-free level, then rebuild gradually with small weekly increases. Cross-train to keep fitness.'},
+      {name:'Calf stretch', how:'Standing calf stretch, 30s each side.'},
+      {name:'Ice for symptoms', how:'Ice the sore area 10–15 min after activity if it flares — for comfort, not a cure.'},
     ],
-    redflag:'the pain becomes sharp and pinpoint on the bone, hurts when you hop on one leg, or persists at rest — this could be a stress fracture.' },
+    redflag:'the pain becomes sharp and pinpoint on the bone, hurts when you hop on one leg, or persists at rest or at night — this can mean a bone stress injury (see Stress Fracture).',
+    src:'MTSS narrative reviews & StatPearls (2024); load-management principles.' },
 
   { id:'runnersknee', emoji:'🦵', name:'Runner’s Knee', area:'Knee (front)',
     short:'Dull ache around or behind the kneecap.',
-    what:'Patellofemoral pain — irritation where the kneecap glides over the thigh bone. The most common knee complaint in runners.',
+    what:'Patellofemoral pain — pain around the front of the kneecap where it loads against the thigh bone. The most common knee complaint in runners.',
     symptoms:['A dull ache around or behind the kneecap','Pain going down stairs, squatting, or sitting with bent knees a while','Occasional grinding or clicking'],
-    causes:['Weak hip and glute muscles letting the knee collapse inward','Rapid increase in mileage or hills','Tight quads and IT band','Worn-out shoes'],
+    causes:['A spike in mileage, hills or speed','Weak hip AND thigh muscles','Loading the knee more than it’s used to'],
     strengthen:[
-      {name:'Glute bridges', how:'Lie on your back, feet flat, lift your hips by squeezing your glutes. 3×15.'},
-      {name:'Clamshells', how:'On your side with knees bent, open the top knee while keeping feet together. 3×15 each side.'},
-      {name:'Step-downs', how:'Stand on a low step and slowly lower the other foot toward the floor with control. 3×10 each leg.'},
+      {name:'Hip strength — side-lying leg raises', how:'On your side, lift the straight top leg up and slightly back. 3×12–15 each side (targets the glute medius).'},
+      {name:'Glute bridges', how:'Feet flat, lift the hips by squeezing the glutes. 3×15; progress to single-leg.'},
+      {name:'Knee strength — step-downs / squats', how:'Slow step-downs off a low step, or supported squats, in a pain-tolerable range. 3×10. Combining hip + knee work beats knee work alone.'},
     ],
     recovery:[
-      {name:'Quad stretch', how:'Pull your heel toward your bum, keeping knees together. Hold 30s each side.'},
-      {name:'Outer-thigh foam roll', how:'Roll the outside of the thigh slowly for 1–2 minutes each side.'},
-      {name:'Hip flexor stretch', how:'In a half-kneel, push your hips gently forward. Hold 30s each side.'},
+      {name:'Load management', how:'Keep running in a range that doesn’t flare the knee (pain no worse than mild, settling within 24h); ease off hills and downhills while it settles.'},
+      {name:'Cadence tweak', how:'A slightly quicker, shorter stride can lower knee load — try about 5% more steps per minute.'},
+      {name:'Quad & hip-flexor stretch', how:'Gentle stretches, 30s each — an adjunct, not the main treatment.'},
     ],
-    redflag:'the knee swells, locks, gives way, or the pain is sharp rather than a dull ache.' },
+    redflag:'the knee swells, locks, gives way, or the pain is sharp rather than a dull ache.',
+    src:'Lack, Neal et al., JOSPT hip + knee strengthening meta-analysis (2018); JOSPT clinical guidance (2019).' },
 
   { id:'itband', emoji:'🦵', name:'IT Band Syndrome', area:'Outer knee / hip',
     short:'Sharp pain on the outside of the knee, often at a set distance.',
-    what:'Irritation of the iliotibial band — a long band of tissue down the outside of the thigh — usually felt as sharp pain on the outside of the knee.',
+    what:'Pain on the outside of the knee from overload of the iliotibial band where it crosses the knee. Now thought to be a compression/load problem — not the band “rubbing” or being “too tight” (that older friction idea is outdated).',
     symptoms:['Sharp or burning pain on the outside of the knee, often after a set distance','Pain worse running downhill or with a long stride','Tenderness on the outer knee or thigh'],
-    causes:['Weak hip and glute muscles','Sudden mileage increases','Running on cambered roads or lots of downhill','A narrow, crossing-over stride'],
+    causes:['Sudden increases in mileage, especially downhill','Lots of running on cambered roads','Hip/glute control and running style','A narrow, crossing-over stride'],
     strengthen:[
-      {name:'Clamshells', how:'On your side, knees bent, open the top knee keeping feet together. 3×15 each side.'},
-      {name:'Side leg raises', how:'On your side, lift the straight top leg up and slightly back. 3×15 each side.'},
-      {name:'Single-leg glute bridges', how:'Bridge using one leg at a time. 3×10 each side.'},
+      {name:'Side-lying leg raises / clamshells', how:'Build hip and glute strength. 3×15 each side. (May help — evidence is mixed — so pair it with load management.)'},
+      {name:'Single-leg control', how:'Slow single-leg squats or step-downs with the knee tracking over the foot — trains the control that often matters more than raw strength.'},
+      {name:'Single-leg glute bridges', how:'3×10 each side.'},
     ],
     recovery:[
-      {name:'Standing IT band stretch', how:'Cross the sore leg behind the other and lean away to that side. Hold 30s each side.'},
-      {name:'Outer-thigh foam roll', how:'Roll the outside of the thigh from hip to just above the knee, slowly, 1–2 minutes each side.'},
-      {name:'Figure-4 glute stretch', how:'Lying down, cross one ankle over the opposite knee and pull the thigh toward you. Hold 30s each side.'},
+      {name:'Manage the load (key)', how:'Cut back mileage and downhill running to a pain-free level, then rebuild gradually.'},
+      {name:'Cadence tweak', how:'A slightly quicker, shorter stride can reduce strain at the knee.'},
+      {name:'Foam roll for relief only', how:'Rolling the outer thigh can ease symptoms short-term — but it doesn’t “lengthen” the IT band, so it’s comfort, not a fix.'},
     ],
-    redflag:'the outer knee swells or the pain stays severe despite rest and reduced mileage.' },
+    redflag:'the outer knee swells or the pain stays severe despite rest and reduced mileage.',
+    src:'Conservative-treatment systematic review (Front. Sports Act. Living, 2024); ITBS Current Evidence (2024).' },
+
+  { id:'stressfracture', emoji:'🦴', name:'Stress Fracture', area:'Bone (shin, foot, hip)',
+    short:'Sharp, pinpoint bone pain that worsens with impact.',
+    what:'A bone stress injury — tiny damage in the bone when repetitive load outpaces its ability to repair. Common in the shin, foot (metatarsals) and hip. This one needs proper assessment, not pushing through.',
+    symptoms:['A specific, pinpoint spot of bone pain (you can often point to it)','Pain that worsens with impact and eases with rest — but returns sooner over time','Sometimes pain hopping on one leg, or at night','Occasionally swelling over the spot'],
+    causes:['Training-load spikes (too much, too soon)','Under-fuelling / low energy availability (RED-S)','Low bone density or a past stress fracture','Weak muscles and abrupt surface or shoe changes'],
+    strengthen:[
+      {name:'Fuel enough for bone health', how:'Eat enough overall — especially carbohydrate around training — with adequate calcium and vitamin D. Under-fuelling (RED-S) is a leading cause of bone stress injuries.'},
+      {name:'Build load gradually', how:'Progress mileage in small steps with easier “down” weeks so bone can adapt and remodel.'},
+      {name:'Strength & impact work (when healthy)', how:'Regular lower-body strength plus some hopping/plyometrics improve bone and muscle tolerance — do these when well, not while injured.'},
+    ],
+    recovery:[
+      {name:'Stop running & get assessed', how:'Don’t run through pinpoint bone pain. See a doctor or physio — some sites (hip/femoral neck, front of the shin) are higher-risk and need imaging.'},
+      {name:'Relative rest + cross-train', how:'Offload the bone (often for weeks) and keep fitness with pain-free swimming or cycling as advised.'},
+      {name:'Graded return', how:'Return to running gradually under guidance once pain-free, and fix the cause — load, fuelling and strength.'},
+    ],
+    redflag:'pain is pinpoint on a bone, hurts to hop, wakes you at night, or is in the hip/groin or front of the shin — get it assessed before running again.',
+    src:'Warden et al., JOSPT bone-stress-injury loading (2021); return-to-run scoping review (2024).' },
+
+  { id:'calf', emoji:'🦵', name:'Calf Strain', area:'Calf / lower leg',
+    short:'Sudden tightness, pull or sharp pain in the calf.',
+    what:'A strain or overload of the calf muscles (gastrocnemius and soleus) — from a niggly tightness to a sudden “pulled” feeling mid-run.',
+    symptoms:['Sudden sharp pain or a “pull” in the back of the lower leg','Tightness, cramping or aching in the calf','Tender to press; may hurt to push off or go up on your toes'],
+    causes:['Fatigue and load spikes, especially faster running or hills','Reduced calf strength or capacity','Tiredness or dehydration (for cramping-type pain)','A sudden sprint or change of pace'],
+    strengthen:[
+      {name:'Progressive calf raises', how:'Straight-knee and bent-knee raises, slow and controlled, adding load over weeks. 3×12–15 — the foundation of a resilient calf.'},
+      {name:'Single-leg calf raises', how:'Progress to one leg, then add tempo or heavier load. 3×10–12 each side.'},
+      {name:'Springy work (once healed)', how:'Gentle hops and skips rebuild the calf’s ability to handle faster running — reintroduce gradually.'},
+    ],
+    recovery:[
+      {name:'Early relative rest', how:'For the first few days avoid painful loading, but keep gentle pain-free movement. Most mild strains settle over 1–3 weeks.'},
+      {name:'Gradual loading', how:'Rebuild with pain-free calf raises, progressing load and speed before returning to running.'},
+      {name:'Gentle calf stretch', how:'Once the sharp pain settles, easy calf and soleus stretches, 30s each.'},
+    ],
+    redflag:'you felt a sudden pop with severe pain, have marked swelling or bruising, or can’t walk or push off — this may be a larger tear (or, with calf swelling/warmth, a blood clot) and needs assessment.',
+    src:'Sports-medicine consensus on calf muscle injuries; progressive-loading principles.' },
 ];
 
 // Low-impact / cross-training activities loggable from the Health tab.
@@ -3280,10 +3322,10 @@ function computeReadiness(d){
   let cls=readinessClass(score);
   if(hasPain) cls='red';
   let msg;
-  if(cls==='green') msg='<b>Green — ready to run.</b> Your body looks recovered. A good day for a quality or longer session if your plan calls for it.';
-  else if(cls==='amber') msg='<b>Amber — keep it easy.</b> Run gentle and conversational today and skip the hard efforts. Easy days are where fitness is built.';
-  else if(hasPain) msg='<b>Red — pain flagged.</b> Don’t push through pain. Consider a rest day or cross-training, and check the guidance below for the area bothering you.';
-  else msg='<b>Red — low readiness.</b> You’re run-down. A rest day or an easy walk will do more for your running than a hard run today.';
+  if(cls==='green') msg='<b>Green — good to go.</b> You look recovered — fine for a quality or longer session. Still, keep week-to-week jumps small: most running injuries come from doing too much, too soon.';
+  else if(cls==='amber') msg='<b>Amber — keep it easy.</b> Run gentle and conversational today and skip the hard efforts. Easy days build your aerobic base and let tissues adapt.';
+  else if(hasPain) msg='<b>Red — pain flagged.</b> Don’t push through pain. Take a rest or cross-training day, and see the guidance below for the area — get sharp or lasting pain checked.';
+  else msg='<b>Red — low readiness.</b> You’re run-down. Short sleep and under-fuelling both raise injury risk, so a rest day, good food and an early night will do more than a hard run.';
   return { score, cls, hasPain, msg };
 }
 
@@ -3406,6 +3448,7 @@ function openInjury(id){
     <div class="injd-section"><div class="injd-h">Strengthening &amp; prevention</div>${inj.strengthen.map(e=>exCard(e,'strengthen','Strengthen')).join('')}</div>
     <div class="injd-section"><div class="injd-h">Recovery &amp; mobility</div>${inj.recovery.map(e=>exCard(e,'recovery','Recover')).join('')}</div>
     <div class="injd-redflag"><b>See a professional if:</b> ${inj.redflag}</div>
+    ${inj.src ? `<div class="injd-src">Sources: ${inj.src}</div>` : ''}
     <div style="height:24px;"></div>`;
   body.scrollTop=0;
   document.getElementById('injury-overlay').classList.add('visible');
