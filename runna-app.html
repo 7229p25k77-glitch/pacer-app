@@ -423,6 +423,8 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .scale-opts{display:flex;gap:6px;}
 .scale-dot{flex:1;height:42px;border-radius:var(--radius-sm);background:var(--surface2);border:1.5px solid transparent;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:border-color .15s,background .15s;filter:grayscale(0.4);opacity:0.75;}
 .scale-dot.selected{border-color:var(--accent);background:var(--accent-dim);filter:none;opacity:1;}
+.pain-dot{font-size:16px;font-weight:800;color:var(--text2);filter:none;}
+.pain-dot.selected{border-color:var(--warn);background:var(--warn-dim);color:var(--warn);}
 /* pain area chips */
 .area-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
 .area-chip{padding:8px 13px;border-radius:20px;background:var(--surface2);border:1.5px solid transparent;font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;transition:.15s;}
@@ -497,6 +499,14 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .injd-src{margin:0 16px;font-size:11px;color:var(--text3);line-height:1.45;}
 
 .info-banner{margin:0 16px 12px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;color:var(--accent);line-height:1.5;}
+.suggest-card{margin:0 16px 14px;background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius);padding:14px 16px;}
+.suggest-card.down{background:var(--amber-dim);border-color:var(--amber);}
+.suggest-text{font-size:13.5px;line-height:1.5;color:var(--text);}
+.suggest-text b{font-weight:800;}
+.suggest-actions{display:flex;gap:10px;margin-top:12px;}
+.suggest-yes{flex:1;background:var(--accent);color:var(--ink);border:none;border-radius:var(--radius-sm);padding:10px;font-size:14px;font-weight:800;cursor:pointer;}
+.suggest-card.down .suggest-yes{background:var(--amber);}
+.suggest-no{flex:1;background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px;font-size:14px;font-weight:700;cursor:pointer;}
 
 /* PROFILE GATE — "Who's running?" picker */
 #profile-gate{display:none;position:fixed;inset:0;z-index:800;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;overflow-y:auto;}
@@ -520,6 +530,8 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .wiz-q{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--text);}
 .wiz-help{font-size:13px;color:var(--text2);line-height:1.5;text-align:center;margin-bottom:16px;}
 .wiz-opts{display:flex;flex-direction:column;gap:0;}
+.wiz-result{margin-top:16px;text-align:center;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text2);}
+.wiz-result b{display:block;font-size:22px;font-weight:800;letter-spacing:-0.3px;text-transform:none;color:var(--accent);margin-top:4px;}
 
 /* GPS INFO + TOGGLE SHEET */
 #gpsinfo-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
@@ -543,6 +555,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:50%;width:42px;height:42px;display:flex;align-items:center;justify-content:center;font-size:20px;">🏃</div>
     </div>
+    <div id="home-suggest"></div>
     <div class="card" style="margin-bottom:14px;">
       <div style="padding:16px 16px 0;">
         <div class="ring-wrap">
@@ -1095,13 +1108,13 @@ function renderProfileGate(){
 }
 // ── Setup wizard: new profiles pick their settings (including GPS) up front ──
 let WIZ = null;
-const WIZ_STEPS = ['name','goal','weeks','level','days','units','gps'];
+const WIZ_STEPS = ['name','goal','weeks','cardio','runnow','strength','days','units','gps'];
 
 function showCreateProfile(firstTime){ startWizard(firstTime); }
 
 function startWizard(firstTime){
   WIZ = { step:0, firstTime:!!firstTime,
-    data:{ name:'', goal:'5K', weeks:'8', level:'Beginner', days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
+    data:{ name:'', goal:'5K', weeks:'8', cardio:1, runnow:1, strength:1, level:'Beginner', _levelManual:false, days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
   document.getElementById('gate-list').style.display = 'none';
   document.getElementById('gate-add-btn').style.display = 'none';
   document.getElementById('gate-close').style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
@@ -1124,8 +1137,20 @@ function renderWizard(){
     body = `<div class="wiz-q">What's your goal?</div>` + optBlocks('goal', [['5K','5K'],['10K','10K'],['Half','Half Marathon'],['Marathon','Marathon']], d.goal);
   } else if (step === 'weeks'){
     body = `<div class="wiz-q">How long is your plan?</div>` + optBlocks('weeks', [['4','4 weeks'],['6','6 weeks'],['8','8 weeks'],['10','10 weeks'],['12','12 weeks'],['14','14 weeks'],['16','16 weeks']], d.weeks);
-  } else if (step === 'level'){
-    body = `<div class="wiz-q">Your experience level?</div>` + optBlocks('level', [['Beginner','Beginner'],['Intermediate','Intermediate'],['Advanced','Advanced']], d.level);
+  } else if (step === 'cardio'){
+    body = `<div class="wiz-q">How much cardio do you do now?</div>
+      <div class="wiz-help">Any regular aerobic exercise — running, cycling, swimming, sport, brisk walking.</div>` +
+      assessBlocks('cardio', [['0','New to it / rarely'],['1','Some — 1–2× a week'],['2','Regular — 3+× a week'],['3','Athlete / competitive']], d.cardio);
+  } else if (step === 'runnow'){
+    body = `<div class="wiz-q">How long can you run non-stop right now?</div>` +
+      assessBlocks('runnow', [['0','Not yet'],['1','A few minutes'],['2','About 20–30 minutes'],['3','45 minutes or more']], d.runnow);
+  } else if (step === 'strength'){
+    body = `<div class="wiz-q">Strength &amp; mobility routine?</div>
+      <div class="wiz-help">Gym, weights, yoga, mobility or stretching work.</div>` +
+      assessBlocks('strength', [['0','None'],['1','Occasional'],['2','Regular']], d.strength) +
+      `<div class="wiz-result">Recommended level<br><b>${d.level}</b></div>
+       <div class="wiz-help" style="margin:10px 0 8px;">Not quite right? Choose a different level:</div>
+       <div class="wiz-opts">` + LEVELS.map(l=>`<button class="edit-option-block${d.level===l?' selected':''}" onclick="wizPickLevel('${l}')">${l}</button>`).join('') + `</div>`;
   } else if (step === 'days'){
     body = `<div class="wiz-q">Which days will you run?</div><div class="edit-day-grid">` +
       ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(day=>`<button class="edit-day-btn${d.days.includes(day)?' selected':''}" onclick="wizToggleDay('${day}')">${day}</button>`).join('') + `</div>`;
@@ -1155,6 +1180,30 @@ function optBlocks(key, pairs, current){
   return `<div class="wiz-opts">` + pairs.map(p=>`<button class="edit-option-block${current===p[0]?' selected':''}" onclick="wizPick('${key}','${p[0]}')">${p[1]}</button>`).join('') + `</div>`;
 }
 function wizPick(key, val){ WIZ.data[key] = val; renderWizard(); }
+function assessBlocks(key, pairs, current){
+  return `<div class="wiz-opts">` + pairs.map(p=>`<button class="edit-option-block${String(current)===p[0]?' selected':''}" onclick="wizAssess('${key}',${p[0]})">${p[1]}</button>`).join('') + `</div>`;
+}
+// Map the 3 assessment answers to one of the 6 levels. Current running ability
+// leads; recent cardio experience nudges within a tier; a strength/mobility base
+// supports a touch more load, while none keeps the harder end conservative.
+function computeAssessedLevel(cardio, runnow, strength){
+  cardio=+cardio||0; runnow=+runnow||0; strength=+strength||0;
+  let idx;
+  if(runnow===0)      idx = cardio>=2 ? 1 : 0;                    // can't run yet → Newbie / Beginner
+  else if(runnow===1) idx = cardio>=2 ? 2 : 1;                    // a few min → Beginner / Adv Beginner
+  else if(runnow===2) idx = cardio>=2 ? 3 : 2;                    // 20–30 min → Adv Beginner / Intermediate
+  else                idx = cardio>=3 ? 5 : (cardio>=1 ? 4 : 3);  // 45+ min → Intermediate / Adv Int / Advanced
+  if(strength>=2 && runnow>=1 && idx<5) idx += 1;                 // solid S&C base → a touch more
+  if(strength===0 && idx>3) idx -= 1;                             // no base → keep the top end cautious
+  return LEVELS[Math.max(0, Math.min(LEVELS.length-1, idx))];
+}
+function wizAssess(key, val){
+  WIZ.data[key] = val;
+  WIZ.data._levelManual = false;
+  WIZ.data.level = computeAssessedLevel(WIZ.data.cardio, WIZ.data.runnow, WIZ.data.strength);
+  renderWizard();
+}
+function wizPickLevel(val){ WIZ.data.level = val; WIZ.data._levelManual = true; renderWizard(); }
 function wizToggleDay(day){
   const days = WIZ.data.days;
   const i = days.indexOf(day);
@@ -1299,6 +1348,13 @@ function weekTitle(w, weeks, isRecovery, isTaper, isRace){
   if (frac < 0.67) return 'Building Endurance';
   return 'Peak Training';
 }
+// The three easiest levels build with run/walk intervals; the rest run continuously.
+function usesRunWalk(level){ return level==='Newbie' || level==='Beginner' || level==='Advanced Beginner'; }
+// How far each run/walk level travels through the beginner curriculum (as a
+// fraction of it): Newbie stays in the walk-heavier early portion; Advanced
+// Beginner skips the earliest weeks and does more continuous running.
+const CURRICULUM_RANGE = { 'Newbie':[0,0.8], 'Beginner':[0,1], 'Advanced Beginner':[0.4,1] };
+
 function makePlan(goal, level, runDays, planWeeks) {
   const goalConfig = {
     '5K':      { peak: 5.0,  weeks: 8,  startKm: 2.5 },
@@ -1306,14 +1362,14 @@ function makePlan(goal, level, runDays, planWeeks) {
     'Half':    { peak: 21.1, weeks: 12, startKm: 6.0 },
     'Marathon':{ peak: 42.2, weeks: 16, startKm: 8.0 },
   };
-  const levelPace = { Beginner: 9.5, Intermediate: 7.5, Advanced: 6.0 };
-  const levelMult = { Beginner: 1.0, Intermediate: 1.3, Advanced: 1.6 };
+  const levelPace = { 'Newbie':10.5, 'Beginner':9.5, 'Advanced Beginner':8.5, 'Intermediate':7.5, 'Advanced Intermediate':6.75, 'Advanced':6.0 };
+  const levelMult = { 'Newbie':0.85, 'Beginner':1.0, 'Advanced Beginner':1.15, 'Intermediate':1.3, 'Advanced Intermediate':1.45, 'Advanced':1.6 };
   const cfg        = goalConfig[goal] || goalConfig['5K'];
   const pace       = levelPace[level] || 9.5;
   const mult       = levelMult[level] || 1.0;
-  const isBeginner = level === 'Beginner';
+  const runWalk    = usesRunWalk(level);
   const weeks      = Math.max(4, Math.min(16, planWeeks ? Math.round(planWeeks) : cfg.weeks));
-  const startKm    = cfg.startKm * (isBeginner ? 1.0 : mult);
+  const startKm    = cfg.startKm * mult;
   const peakKm     = cfg.peak;
   const days       = Math.max(1, runDays.length);
   const plan       = [];
@@ -1358,10 +1414,13 @@ function makePlan(goal, level, runDays, planWeeks) {
 
       if (isRace && d === days - 1) {
         type = 'race'; distKm = cfg.peak;
-      } else if (isBeginner) {
-        // Map this week onto the 8-week beginner curriculum proportionally, so a
-        // shorter plan ramps faster and a longer plan ramps more gradually.
-        const sessIdx = weeks <= 1 ? 0 : Math.round(w / (weeks - 1) * (BEGINNER_WEEK_SESSIONS.length - 1));
+      } else if (runWalk) {
+        // Map this week onto the beginner curriculum proportionally (shorter plans
+        // ramp faster). The level's CURRICULUM_RANGE sets which slice it covers.
+        const LEN = BEGINNER_WEEK_SESSIONS.length;
+        const rng = CURRICULUM_RANGE[level] || [0,1];
+        const frac = weeks <= 1 ? 1 : w / (weeks - 1);
+        const sessIdx = Math.round((rng[0] + (rng[1]-rng[0]) * frac) * (LEN - 1));
         const weekSessions = BEGINNER_WEEK_SESSIONS[Math.min(sessIdx, BEGINNER_WEEK_SESSIONS.length - 1)];
         // Map day index to A/B/C — if fewer than 3 run days, pick evenly spaced variants
         const variantIdx = days === 1 ? 1 : days === 2 ? [0,2][d] : d;
@@ -1398,7 +1457,7 @@ function makePlan(goal, level, runDays, planWeeks) {
 }
 
 function buildLaps(type, totalKm, weekIndex, mult, level, sessionVariant, dayIndex) {
-  const isBeginner = level === 'Beginner';
+  const isBeginner = usesRunWalk(level);
   const laps = [];
   const warmupKm = Math.min(0.5, totalKm * 0.14);
   const coolKm   = Math.min(0.5, totalKm * 0.14);
@@ -1497,7 +1556,7 @@ function buildLaps(type, totalKm, weekIndex, mult, level, sessionVariant, dayInd
 
   } else {
     // Non-beginner easy or long — vary structure by dayIndex
-    const runPace = level === 'Advanced' ? 6.5 : 7.5;
+    const runPace = (level === 'Advanced' || level === 'Advanced Intermediate') ? 6.5 : 7.5;
     if (type === 'long') {
       // Long runs: steady vs negative split vs with surge
       const longStyle = weekIndex % 3;
@@ -1631,9 +1690,12 @@ function fmtTime(sec) {
 function getPaceZones() {
   const lv = APP.profile.level;
   const zones = {
-    Beginner: [{z:'Easy',lo:510,hi:600},{z:'Tempo',lo:420,hi:510},{z:'Race',lo:360,hi:420}],
-    Intermediate: [{z:'Easy',lo:420,hi:510},{z:'Tempo',lo:330,hi:420},{z:'Race',lo:270,hi:330}],
-    Advanced: [{z:'Easy',lo:330,hi:420},{z:'Tempo',lo:270,hi:330},{z:'Race',lo:210,hi:270}],
+    'Newbie':               [{z:'Easy',lo:570,hi:660},{z:'Tempo',lo:480,hi:570},{z:'Race',lo:420,hi:480}],
+    'Beginner':             [{z:'Easy',lo:510,hi:600},{z:'Tempo',lo:420,hi:510},{z:'Race',lo:360,hi:420}],
+    'Advanced Beginner':    [{z:'Easy',lo:465,hi:555},{z:'Tempo',lo:375,hi:465},{z:'Race',lo:315,hi:375}],
+    'Intermediate':         [{z:'Easy',lo:420,hi:510},{z:'Tempo',lo:330,hi:420},{z:'Race',lo:270,hi:330}],
+    'Advanced Intermediate':[{z:'Easy',lo:375,hi:465},{z:'Tempo',lo:300,hi:375},{z:'Race',lo:240,hi:300}],
+    'Advanced':             [{z:'Easy',lo:330,hi:420},{z:'Tempo',lo:270,hi:330},{z:'Race',lo:210,hi:270}],
   };
   return (zones[lv] || zones.Beginner).map(z => ({
     ...z,
@@ -1762,6 +1824,51 @@ function renderHome() {
   renderHomeWeekCard();
   // Pace guide
   renderPaceGuide();
+  // Difficulty suggestion based on recent effort ratings
+  renderPlanSuggestion();
+}
+
+// ── Adjust plan difficulty from recent effort (feel) ratings ───────────────
+const LEVELS = ['Newbie','Beginner','Advanced Beginner','Intermediate','Advanced Intermediate','Advanced'];
+// If the last 4 rated runs were all easy → suggest a level up; all hard → down.
+function planAdjustSuggestion(){
+  const runs = (APP.logs||[]).filter(l=>!isRecovery(l) && l.feel!=null);   // newest-first
+  if(runs.length < 4) return null;
+  const last4 = runs.slice(0,4);
+  const li = LEVELS.indexOf(APP.profile.level || 'Beginner');
+  if(last4.every(l=>l.feel<=2) && li < LEVELS.length-1) return { dir:'up',   to:LEVELS[li+1], sig:'up:'+last4[0].id };
+  if(last4.every(l=>l.feel>=4) && li > 0)               return { dir:'down', to:LEVELS[li-1], sig:'down:'+last4[0].id };
+  return null;
+}
+function renderPlanSuggestion(){
+  const el = document.getElementById('home-suggest');
+  if(!el) return;
+  const s = planAdjustSuggestion();
+  if(!s || APP.profile.planSuggestDismiss === s.sig){ el.innerHTML=''; return; }
+  const up = s.dir==='up';
+  el.innerHTML = `<div class="suggest-card${up?'':' down'}">
+    <div class="suggest-text">${up
+      ? 'Your last 4 runs all felt easy. Ready to progress? I can step your plan up to <b>'+s.to+'</b> — slightly faster targets and tougher sessions.'
+      : 'Your last 4 runs all felt hard. To keep training safe, I can ease your plan down to <b>'+s.to+'</b>.'}</div>
+    <div class="suggest-actions">
+      <button class="suggest-yes" onclick="acceptPlanAdjust('${s.dir}','${s.to}','${s.sig}')">${up?'Level up':'Ease off'}</button>
+      <button class="suggest-no" onclick="dismissPlanAdjust('${s.sig}')">Not now</button>
+    </div>
+  </div>`;
+}
+function acceptPlanAdjust(dir, to, sig){
+  APP.profile.level = to;
+  APP.profile.planSuggestDismiss = sig;   // don't re-prompt until a new run comes in
+  save();
+  rebuildPlan();                          // regenerate plan + re-render home/plan
+  applyProfileToUI();                     // update Level shown on the profile screen
+  renderPaceGuide();
+  showModal('Plan updated', 'Your plan is now '+to+' — pace targets and sessions have been adjusted. Change it any time in Profile → Level.', 'Got it', null);
+}
+function dismissPlanAdjust(sig){
+  APP.profile.planSuggestDismiss = sig;
+  save();
+  renderPlanSuggestion();
 }
 
 function getCurrentWeek() {
@@ -1806,7 +1913,7 @@ function renderTodayCard() {
     <div class="today-run-desc">Week ${week.weekNum}: ${week.title}</div>
     <div class="today-run-meta">
       <div class="trm-item"><div class="trm-val">${fmtShort(run.distKm)}</div><div class="trm-lbl">${unitLabel()}</div></div>
-      <div class="trm-item"><div class="trm-val">${APP.profile.level==='Beginner'?30:Math.round(run.distKm*9)}</div><div class="trm-lbl">min</div></div>
+      <div class="trm-item"><div class="trm-val">${usesRunWalk(APP.profile.level)?30:Math.round(run.distKm*9)}</div><div class="trm-lbl">min</div></div>
       <div class="trm-item"><div class="trm-val">${effort[run.type]||'Easy'}</div><div class="trm-lbl">effort</div></div>
     </div>
     <button class="today-cta" onclick="event.stopPropagation();openWorkoutFromPlan(${next.w},${next.r})">View Workout →</button>
@@ -1834,7 +1941,7 @@ function renderHomeWeekCard() {
       const dot = isDone ? 'dot-done' : 'dot-run';
       rows += `<div class="day-row tappable" onclick="openWorkoutFromPlan(${curW},${runIndex})">
         <div class="day-dot ${dot}">${day.slice(0,3).toUpperCase()}</div>
-        <div class="day-info"><div class="day-name">${isDone?'✓ ':''} ${typeLabels[run.type]||'Run'}</div><div class="day-desc">${fmtShort(run.distKm)} · ${APP.profile.level==='Beginner'?'30':Math.round(run.distKm*9)} min</div></div>
+        <div class="day-info"><div class="day-name">${isDone?'✓ ':''} ${typeLabels[run.type]||'Run'}</div><div class="day-desc">${fmtShort(run.distKm)} · ${usesRunWalk(APP.profile.level)?'30':Math.round(run.distKm*9)} min</div></div>
         <div class="day-meta"><div class="day-dist">${fmtShort(run.distKm)}</div><div class="day-arrow">›</div></div>
       </div>`;
     }
@@ -1942,7 +2049,7 @@ function openWorkoutFromPlan(wi, ri) {
 
   document.getElementById('wo-type').textContent = typeLabels[run.type]||'Run';
   document.getElementById('wo-dist').textContent = fmtShort(run.distKm);
-  document.getElementById('wo-time').textContent = (APP.profile.level==='Beginner'?'30':'~'+Math.round(run.distKm*9))+' min';
+  document.getElementById('wo-time').textContent = (usesRunWalk(APP.profile.level)?'30':'~'+Math.round(run.distKm*9))+' min';
   document.getElementById('wo-effort').textContent = effort[run.type]||'Easy';
 
   // Show focus badge for beginner variants
@@ -3141,6 +3248,7 @@ const PAIN_AREAS = [
   { id:'hip',      label:'Hip / outer thigh' },
 ];
 const AREA_INJURY = { heel:['plantar','stressfracture'], shin:['shin','stressfracture'], knee:['runnersknee','itband'], achilles:['achilles','calf'], hip:['itband','stressfracture'] };
+const PAIN_WORDS = ['Very mild','Mild','Moderate','Strong','Severe'];  // 1–5 pain scale
 
 const INJURIES = [
   { id:'plantar', emoji:'🦶', name:'Plantar Fasciitis', area:'Foot / heel',
@@ -3312,20 +3420,35 @@ function readinessClass(score){ return score>=4 ? 'green' : (score>=2.8 ? 'amber
 function loadCheckinDraft(){
   const today = (APP.checkIns||[]).find(c=>c.date===todayKey());
   checkinDraft = today
-    ? { energy:today.energy, legs:today.legs, sleep:today.sleep, pain:[...(today.pain||[])], saved:true }
-    : { energy:null, legs:null, sleep:null, pain:[], saved:false };
+    ? { energy:today.energy, legs:today.legs, sleep:today.sleep, pain:[...(today.pain||[])], painLevel:today.painLevel||null, saved:true }
+    : { energy:null, legs:null, sleep:null, pain:[], painLevel:null, saved:false };
 }
 
+function baseReadinessMsg(cls){
+  if(cls==='green') return '<b>Green — good to go.</b> You look recovered — fine for a quality or longer session. Still, keep week-to-week jumps small: most running injuries come from doing too much, too soon.';
+  if(cls==='amber') return '<b>Amber — keep it easy.</b> Run gentle and conversational today and skip the hard efforts. Easy days build your aerobic base and let tissues adapt.';
+  return '<b>Red — low readiness.</b> You’re run-down. Short sleep and under-fuelling both raise injury risk, so a rest day, good food and an early night will do more than a hard run.';
+}
 function computeReadiness(d){
   const score=(d.energy+d.legs+d.sleep)/3;
   const hasPain=d.pain.some(p=>p!=='none');
+  const pl = hasPain ? (d.painLevel||0) : 0;   // 1–5 pain severity
   let cls=readinessClass(score);
-  if(hasPain) cls='red';
   let msg;
-  if(cls==='green') msg='<b>Green — good to go.</b> You look recovered — fine for a quality or longer session. Still, keep week-to-week jumps small: most running injuries come from doing too much, too soon.';
-  else if(cls==='amber') msg='<b>Amber — keep it easy.</b> Run gentle and conversational today and skip the hard efforts. Easy days build your aerobic base and let tissues adapt.';
-  else if(hasPain) msg='<b>Red — pain flagged.</b> Don’t push through pain. Take a rest or cross-training day, and see the guidance below for the area — get sharp or lasting pain checked.';
-  else msg='<b>Red — low readiness.</b> You’re run-down. Short sleep and under-fuelling both raise injury risk, so a rest day, good food and an early night will do more than a hard run.';
+  if(pl>=4){
+    cls='red';
+    msg='<b>Red — rest today.</b> You rated the pain '+pl+'/5. Don’t run — rest or cross-train, and get sharp, severe or lasting pain checked. See the guidance below for that area.';
+  } else if(pl===3){
+    if(cls!=='red') cls='amber';
+    msg='<b>Amber — be cautious.</b> Pain rated 3/5 — take an easy day or a rest day and watch how it responds. If it worsens or lingers, get it looked at, and see the guidance below.';
+  } else if(hasPain && pl===0){
+    if(cls==='green') cls='amber';
+    msg='<b>Rate the pain.</b> Tap how bad the ache is (1–5) so we can advise how to adjust today.';
+  } else if(hasPain){          // pl is 1 or 2
+    msg=baseReadinessMsg(cls)+'<br><br>Mild ache (rated '+pl+'/5) — often just muscles adapting rather than injury. Run as planned but keep an eye on it and back off if it worsens.';
+  } else {
+    msg=baseReadinessMsg(cls);
+  }
   return { score, cls, hasPain, msg };
 }
 
@@ -3352,6 +3475,13 @@ function renderCheckinCard(){
     const on=d.pain.includes(a.id);
     return `<button class="area-chip${a.ok?' ok':''}${on?' selected':''}" onclick="togglePain('${a.id}')">${a.label}</button>`;
   }).join('');
+  const hasPain = d.pain.some(p=>p!=='none');
+  const painScale = hasPain ? `
+    <div class="scale-row" style="margin-top:14px;">
+      <div class="scale-head"><span class="sh-label">How bad is the pain?</span><span class="sh-val">${d.painLevel?PAIN_WORDS[d.painLevel-1]:'—'}</span></div>
+      <div class="scale-opts">${[1,2,3,4,5].map(n=>`<button class="scale-dot pain-dot${d.painLevel===n?' selected':''}" onclick="setPainLevel(${n})" aria-label="Pain ${n} of 5">${n}</button>`).join('')}</div>
+      <div class="hl-card-sub" style="margin:6px 0 0;">1–2 = likely normal soreness · 3 = ease off · 4–5 = don’t run</div>
+    </div>` : '';
   const complete = d.energy && d.legs && d.sleep;
   const banner = complete ? `<div class="readiness ${computeReadiness(d).cls}">${computeReadiness(d).msg}</div>` : '';
   const savedNote = d.saved ? '<div class="hl-saved-note">✓ Saved for today — tap any option to update.</div>' : '';
@@ -3361,6 +3491,7 @@ function renderCheckinCard(){
     ${scales}
     <div class="scale-head" style="margin:4px 0 8px;"><span class="sh-label">Any aches or pain?</span></div>
     <div class="area-chips">${chips}</div>
+    ${painScale}
     ${banner}
     <button class="hl-save-btn" ${complete?'':'disabled'} onclick="saveCheckIn()">${d.saved?'Update check-in':'Save check-in'}</button>
     ${savedNote}
@@ -3383,6 +3514,13 @@ function togglePain(id){
     if(i>=0) arr.splice(i,1); else arr.push(id);
     checkinDraft.pain = arr.filter(x=>x!=='none');  // a real area clears "No pain"
   }
+  if(!checkinDraft.pain.some(p=>p!=='none')) checkinDraft.painLevel=null;  // no pain → clear severity
+  checkinDraft.saved=false;
+  renderHealth();
+}
+function setPainLevel(n){
+  if(!checkinDraft) loadCheckinDraft();
+  checkinDraft.painLevel = (checkinDraft.painLevel===n) ? null : n;
   checkinDraft.saved=false;
   renderHealth();
 }
@@ -3390,7 +3528,7 @@ function saveCheckIn(){
   const d=checkinDraft;
   if(!(d && d.energy && d.legs && d.sleep)) return;
   const r=computeReadiness(d);
-  const entry={ date:todayKey(), energy:d.energy, legs:d.legs, sleep:d.sleep, pain:[...d.pain], score:Math.round(r.score*10)/10, cls:r.cls, ts:Date.now() };
+  const entry={ date:todayKey(), energy:d.energy, legs:d.legs, sleep:d.sleep, pain:[...d.pain], painLevel:d.painLevel||null, score:Math.round(r.score*10)/10, cls:r.cls, ts:Date.now() };
   APP.checkIns = (APP.checkIns||[]).filter(c=>c.date!==entry.date);
   APP.checkIns.unshift(entry);
   if(APP.checkIns.length>60) APP.checkIns=APP.checkIns.slice(0,60);
@@ -4059,7 +4197,7 @@ const EDITS = {
       rebuildPlan();save();}},
   level:{title:'Experience Level',render:p=>`
     <div class="edit-field"><div class="edit-label">Your level — affects pace zones &amp; distances</div>
-    ${['Beginner','Intermediate','Advanced'].map(l=>`<button class="edit-option-block${p.level===l?' selected':''}" onclick="pick('level','${l}',this)">${l}</button>`).join('')}</div>`,
+    ${LEVELS.map(l=>`<button class="edit-option-block${p.level===l?' selected':''}" onclick="pick('level','${l}',this)">${l}</button>`).join('')}</div>`,
     save:()=>{
       document.getElementById('sr-level').textContent=APP.profile.level;
       document.getElementById('profile-goal-el').textContent=`${APP.profile.level} · ${APP.profile.goal} Goal`;
