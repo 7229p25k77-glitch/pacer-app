@@ -131,6 +131,25 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .chevron.open{transform:rotate(180deg);}
 .plan-week-days{border-top:1px solid var(--border);display:none;}
 .plan-week-days.open{display:block;}
+/* Plan list/calendar toggle + calendar grid */
+.plan-view-toggle{display:flex;gap:4px;background:var(--surface2);padding:4px;border-radius:var(--radius-sm);margin:0 16px 14px;}
+.pvt-btn{flex:1;padding:8px;border:none;background:none;border-radius:calc(var(--radius-sm) - 3px);font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;}
+.pvt-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.12);}
+#plan-calendar-container{margin:0 12px;}
+.cal-row{display:grid;grid-template-columns:28px repeat(7,1fr);gap:4px;margin-bottom:4px;align-items:center;}
+.cal-headrow{margin-bottom:6px;}
+.cal-dh{text-align:center;font-size:10px;font-weight:700;color:var(--text3);}
+.cal-wk{font-size:10px;font-weight:800;color:var(--text2);}
+.cal-row.current{background:var(--accent-dim);border-radius:8px;}
+.cal-cell{height:34px;border-radius:6px;border:none;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#fff;cursor:pointer;padding:0;}
+.cal-cell.rest{background:var(--surface2);cursor:default;}
+.cal-cell.cal-easy{background:var(--accent);}
+.cal-cell.cal-tempo{background:var(--accent2);}
+.cal-cell.cal-hard{background:var(--warn);}
+.cal-cell.done{opacity:0.5;}
+.cal-legend{margin:14px 4px 6px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.6;}
+.cal-key{width:12px;height:12px;border-radius:3px;display:inline-block;}
+.cal-key.cal-easy{background:var(--accent);} .cal-key.cal-tempo{background:var(--accent2);} .cal-key.cal-hard{background:var(--warn);}
 .plan-day-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;}
 .plan-day-row:last-child{border-bottom:none;}
 .plan-day-row:active{background:var(--surface2);}
@@ -436,6 +455,11 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .readiness.green{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
 .readiness.amber{background:var(--amber-dim);border-color:var(--amber);color:var(--amber);}
 .readiness.red{background:var(--warn-dim);border-color:var(--warn);color:var(--warn);}
+.pain-alt-title{font-size:12px;font-weight:800;letter-spacing:0.4px;text-transform:uppercase;color:var(--text2);margin:14px 0 8px;}
+.pain-alt-row{display:flex;gap:8px;}
+.pain-alt{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 4px;font-size:11.5px;font-weight:700;color:var(--text);text-align:center;line-height:1.2;cursor:pointer;}
+.pain-alt:active{background:var(--accent-dim);border-color:var(--accent);}
+.pain-alt-ic{font-size:22px;line-height:1;}
 .hl-save-btn{width:100%;margin-top:14px;padding:14px;background:var(--accent);color:var(--ink);font-size:15px;font-weight:800;border:none;border-radius:var(--radius-sm);cursor:pointer;}
 .hl-save-btn:disabled{background:var(--surface2);color:var(--text3);cursor:not-allowed;}
 .hl-saved-note{text-align:center;font-size:12.5px;color:var(--text2);margin-top:10px;}
@@ -594,8 +618,12 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="screen-sub" id="plan-sub">Beginner 5K · 8 weeks</div>
   </div>
   <div class="scroll-area">
-    <div style="height:8px;"></div>
+    <div class="plan-view-toggle">
+      <button class="pvt-btn active" id="pvt-list" onclick="setPlanView('list')">List</button>
+      <button class="pvt-btn" id="pvt-cal" onclick="setPlanView('calendar')">Calendar</button>
+    </div>
     <div id="plan-weeks-container"></div>
+    <div id="plan-calendar-container" style="display:none;"></div>
     <div style="height:8px;"></div>
   </div>
 </div>
@@ -1889,6 +1917,15 @@ function getNextRun() {
   return null;
 }
 
+// Next scheduled run day (abbrev) after today, from the profile's run days.
+function nextTrainingDay(){
+  const order = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const days = APP.profile.days || [];
+  const t = new Date().getDay();
+  for(let i=1;i<=7;i++){ const a = order[(t+i)%7]; if(days.includes(a)) return a; }
+  return null;
+}
+
 function renderTodayCard() {
   const el = document.getElementById('today-card');
   const next = getNextRun();
@@ -1907,8 +1944,14 @@ function renderTodayCard() {
   const run  = week.runs[next.r];
   const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day 🏁'};
   const effort={easy:'Easy',tempo:'Moderate',long:'Easy',intervals:'Hard',race:'Race'};
+  const dayFull={Mon:'Monday',Tue:'Tuesday',Wed:'Wednesday',Thu:'Thursday',Fri:'Friday',Sat:'Saturday',Sun:'Sunday'};
+  // Pushed today? (runner chose an alternative on a medium–high pain check-in)
+  const pushedAbbr = (APP.profile.restDay === todayKey()) ? nextTrainingDay() : null;
+  const eyebrow = pushedAbbr
+    ? '🛌 Resting today · next run ' + (dayFull[pushedAbbr]||pushedAbbr)
+    : 'Up Next · ' + (dayFull[run.day]||run.day);
   el.innerHTML = `<div class="today-hero" onclick="openWorkoutFromPlan(${next.w},${next.r})">
-    <div class="today-eyebrow">Up Next · Week ${week.weekNum}</div>
+    <div class="today-eyebrow">${eyebrow}</div>
     <div class="today-run-name">${typeLabels[run.type]||'Run'}</div>
     <div class="today-run-desc">Week ${week.weekNum}: ${week.title}</div>
     <div class="today-run-meta">
@@ -2029,6 +2072,50 @@ function renderPlan() {
       </div>
     </div>`;
   });
+  el.innerHTML = html;
+  renderPlanCalendar();
+  applyPlanView();
+}
+
+// List / Calendar toggle on the Plan page.
+let PLAN_VIEW = 'list';
+function setPlanView(v){ PLAN_VIEW = v; applyPlanView(); }
+function applyPlanView(){
+  const list = document.getElementById('plan-weeks-container');
+  const cal  = document.getElementById('plan-calendar-container');
+  if(!list || !cal) return;
+  const isCal = PLAN_VIEW === 'calendar';
+  list.style.display = isCal ? 'none' : '';
+  cal.style.display  = isCal ? '' : 'none';
+  const lb = document.getElementById('pvt-list'), cb = document.getElementById('pvt-cal');
+  if(lb) lb.classList.toggle('active', !isCal);
+  if(cb) cb.classList.toggle('active', isCal);
+}
+
+// Whole-plan grid: rows = weeks, columns = Mon–Sun. Any cell (incl. future) taps
+// through to the workout screen, which shows it read-only when it's still locked.
+function renderPlanCalendar(){
+  const el = document.getElementById('plan-calendar-container');
+  if(!el) return;
+  const allDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const dh = ['M','T','W','T','F','S','S'];
+  const cellClass = { easy:'cal-easy', long:'cal-easy', tempo:'cal-tempo', intervals:'cal-hard', race:'cal-hard' };
+  const curWeekIdx = getCurrentWeek() - 1;
+  const miles = APP.profile.units === 'miles';
+  let html = `<div class="cal-row cal-headrow"><div class="cal-wk"></div>${dh.map(d=>`<div class="cal-dh">${d}</div>`).join('')}</div>`;
+  APP.plan.forEach((week, wi) => {
+    html += `<div class="cal-row${wi===curWeekIdx?' current':''}"><div class="cal-wk">W${week.weekNum}</div>`;
+    for(const day of allDays){
+      const ri = week.runs.findIndex(r=>r.day===day);
+      if(ri === -1){ html += `<div class="cal-cell rest"></div>`; continue; }
+      const run = week.runs[ri];
+      const isDone = !!APP.completedRuns[`w${wi}r${ri}`];
+      const dist = (miles ? run.distKm*0.621371 : run.distKm).toFixed(1);
+      html += `<button class="cal-cell ${cellClass[run.type]||'cal-easy'}${isDone?' done':''}" onclick="openWorkoutFromPlan(${wi},${ri})" aria-label="Week ${week.weekNum} ${day} ${run.type}">${isDone?'✓':dist}</button>`;
+    }
+    html += `</div>`;
+  });
+  html += `<div class="cal-legend"><span class="cal-key cal-easy"></span>Easy/Long <span class="cal-key cal-tempo"></span>Tempo <span class="cal-key cal-hard"></span>Hard/Race · tap a run to preview</div>`;
   el.innerHTML = html;
 }
 
@@ -2786,7 +2873,7 @@ function finishRun() {
   };
   APP.logs.unshift(logEntry);
   LAST_RUN_ID = logEntry.id;
-  if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; }
+  if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; APP.profile.restDay = null; }  // ran → clear any "resting today"
   save();
   renderHome(); renderPlan(); updateLogScreen();
   document.getElementById('cs-dist').textContent = fmtShort(distKm);
@@ -3404,7 +3491,7 @@ function renderRecoveryCard(){
       <span class="rec-act-name">${a.display}</span>
       <span class="rec-act-sub">${a.gps?'GPS':'Timer'}</span>
     </button>`).join('');
-  return `<div class="hl-sec-title">Recovery &amp; cross-training</div>
+  return `<div class="hl-sec-title" id="recovery-anchor">Recovery &amp; cross-training</div>
     <div class="hl-card">
       <div class="hl-card-title">Log a recovery session</div>
       <div class="hl-card-sub">Can’t run, or want a lower-impact day? Cross-training keeps your fitness up while your body recovers — and you get the same post-session analytics, including the effort review.</div>
@@ -3484,6 +3571,14 @@ function renderCheckinCard(){
     </div>` : '';
   const complete = d.energy && d.legs && d.sleep;
   const banner = complete ? `<div class="readiness ${computeReadiness(d).cls}">${computeReadiness(d).msg}</div>` : '';
+  // Medium–high pain (3+): offer alternatives to running today.
+  const painAlts = (hasPain && d.painLevel >= 3) ? `
+    <div class="pain-alt-title">Train differently instead</div>
+    <div class="pain-alt-row">
+      <button class="pain-alt" onclick="scrollToRecovery()"><span class="pain-alt-ic">🚴</span>Low-impact cardio</button>
+      <button class="pain-alt" onclick="openStrengthForPain()"><span class="pain-alt-ic">🦵</span>Strength &amp; mobility</button>
+      <button class="pain-alt" onclick="suggestRest()"><span class="pain-alt-ic">🛌</span>Rest today</button>
+    </div>` : '';
   const savedNote = d.saved ? '<div class="hl-saved-note">✓ Saved for today — tap any option to update.</div>' : '';
   return `<div class="hl-card">
     <div class="hl-card-title">How are you feeling today?</div>
@@ -3493,6 +3588,7 @@ function renderCheckinCard(){
     <div class="area-chips">${chips}</div>
     ${painScale}
     ${banner}
+    ${painAlts}
     <button class="hl-save-btn" ${complete?'':'disabled'} onclick="saveCheckIn()">${d.saved?'Update check-in':'Save check-in'}</button>
     ${savedNote}
   </div>`;
@@ -3523,6 +3619,28 @@ function setPainLevel(n){
   checkinDraft.painLevel = (checkinDraft.painLevel===n) ? null : n;
   checkinDraft.saved=false;
   renderHealth();
+}
+// Pain-day alternatives to running (shown at pain 3+). Choosing any of them means
+// "not running today", so we push today's run to the next training day.
+function deferTodaysRun(){
+  APP.profile.restDay = todayKey();
+  save();
+  renderHome();   // update the Today card ("resting today · next run …")
+}
+function scrollToRecovery(){
+  deferTodaysRun();
+  const el=document.getElementById('recovery-anchor');
+  if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function openStrengthForPain(){
+  deferTodaysRun();
+  const areas=(checkinDraft && checkinDraft.pain || []).filter(p=>p!=='none');
+  for(const a of areas){ const ids=AREA_INJURY[a]; if(ids && ids.length){ openInjury(ids[0]); return; } }
+  const el=document.querySelector('.inj-disclaimer'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+function suggestRest(){
+  deferTodaysRun();
+  showModal('Rest today 🛌', 'Good call — with pain this high, rest lets tissues repair and often does more for your running than pushing through. Your run has moved to your next training day.', 'OK', null);
 }
 function saveCheckIn(){
   const d=checkinDraft;

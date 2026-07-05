@@ -43,13 +43,27 @@ session is productive immediately.
   `save()`/`load()` act on the active profile. `DEFAULT_PROFILE` holds defaults.
   Device-level prefs: `pacer_gps_enabled`, `pacer_theme`.
 - **Profiles:** up to 5. Setup **wizard** (`startWizard`/`renderWizard`/`WIZ_STEPS`:
-  name, goal, weeks, level, days, units, gps). Picker = the "Who's running?" gate
+  name, goal, weeks, **cardio, runnow, strength**, days, units, gps). The three assessment
+  steps (recent cardio, current non-stop run ability, strength/mobility base) feed
+  `computeAssessedLevel()` → one of the 6 levels, shown as a recommendation with a manual
+  override (`wizAssess`/`wizPickLevel`, `_levelManual`). Picker = the "Who's running?" gate
   (`showProfileGate`/`renderProfileGate`); switch via Me screen; remove via the ✕ on a
   card (`confirmDeleteProfile`/`deleteProfile`). App opens to the last-used profile.
+- **6 levels** (`LEVELS`, ordered): Newbie · Beginner · Advanced Beginner · Intermediate ·
+  Advanced Intermediate · Advanced. Each reshapes the plan: pace zones (`getPaceZones`),
+  starting volume + progression (`levelPace`/`levelMult` in `makePlan`), and run/walk vs
+  continuous structure (`usesRunWalk()` — the 3 easiest use the run/walk curriculum, with
+  per-level slices via `CURRICULUM_RANGE`; the rest run continuously). Beginner/Intermediate/
+  Advanced kept their original names, so old profiles need no migration.
 - **Plan engine:** `makePlan(goal, level, runDays, planWeeks)`. Length is selectable
   4–16 weeks (`planWeeks`) and the activities SCALE: beginner curriculum
   (`BEGINNER_WEEK_SESSIONS`) and non-beginner patterns map proportionally; recovery weeks
   every ~4th week; last two weeks always taper + race; `weekTitle()` names weeks.
+- **Plan page views:** a List/Calendar toggle (`setPlanView`/`applyPlanView`, `PLAN_VIEW`).
+  List = the expandable week accordion; Calendar (`renderPlanCalendar`) = a weeks × Mon–Sun
+  grid (coloured run cells + distance, faded rest). Tapping any cell — incl. future/locked —
+  calls `openWorkoutFromPlan`, which already shows the workout read-only with a disabled
+  Start when locked.
 - **Run timer:** `startRun(runOverride?)` builds phases from a run's laps, each with a
   `pace` (sec/km) from `lapPaceSecPerKm()` (based on the home-page pace zones).
   Driven by the WALL CLOCK, not tick-counting: `timerTick()` (1s interval) advances by the
@@ -125,9 +139,15 @@ session is productive immediately.
   `activity`/`icon`; ends in the same celebration → analytics flow.
 - **Health tab (Body Check-in):** 5th nav tab. `renderHealth()` draws a daily readiness
   check-in (energy/legs/sleep scales + pain-area chips → green/amber/red verdict, saved
-  to `APP.checkIns` keyed by LOCAL date via `todayKey()`). `INJURIES` data drives a list
-  of common running injuries; reported pain flags matching ones (`AREA_INJURY`); tapping
-  opens `#injury-overlay` (`openInjury`) with signs/causes/strengthening/recovery moves.
+  to `APP.checkIns` keyed by LOCAL date via `todayKey()`). Picking a pain area reveals a
+  **1–5 pain scale** (`setPainLevel`); `computeReadiness` maps it 1–2 = run · 3 = amber ·
+  4–5 = red. At pain ≥3 the verdict shows **alternatives** (`scrollToRecovery` /
+  `openStrengthForPain` / `suggestRest`); tapping any of them calls `deferTodaysRun()`,
+  which sets `APP.profile.restDay = todayKey()` so the Home Today card shows the run pushed
+  to the **next training day** (`nextTrainingDay()`); cleared when a plan run is finished.
+  `INJURIES` data drives a list of common running injuries; reported pain flags matching
+  ones (`AREA_INJURY`); tapping opens `#injury-overlay` (`openInjury`) with
+  signs/causes/strengthening/recovery moves.
   **All injury content carries a clear "not medical advice / not from licensed
   professionals" disclaimer — keep that whenever editing this section.**
 - **Achievements (Profile → Milestones):** `openAchievements` → `#achievements-overlay`,
