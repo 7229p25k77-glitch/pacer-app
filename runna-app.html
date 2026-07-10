@@ -18,6 +18,7 @@
   --amber:#F0A93B;--amber-dim:rgba(240,169,59,0.14);
   --steel:#5E6E96;--steel-dim:rgba(94,110,150,0.16);
   --skip:#3A3A48;
+  --free:#4C82F0;
   --text:#F0F0F8;--text2:#8888AA;--text3:#55556A;
   --ink:#0A0A0F; /* dark text that sits on top of accent-colored buttons — same in both themes */
   --nav-h:60px;--radius:16px;--radius-sm:10px;
@@ -33,6 +34,7 @@ html.light{
   --amber:#C9821A;--amber-dim:rgba(201,130,26,0.14);
   --steel:#6E7C9E;--steel-dim:rgba(110,124,158,0.16);
   --skip:#C3C7D2;
+  --free:#2E6BE6;
   --text:#16161D;--text2:#5C5C70;--text3:#9B9BAD;
 }
 html.light .today-hero{background:linear-gradient(135deg,#E2F6EE 0%,#E7EEF9 100%);border-color:#CBE8DB;}
@@ -145,7 +147,7 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .cal-dh{text-align:center;font-size:10px;font-weight:700;color:var(--text3);}
 .cal-wk{font-size:10px;font-weight:800;color:var(--text2);}
 .cal-row.current{background:var(--accent-dim);border-radius:8px;}
-.cal-cell{height:34px;border-radius:6px;border:none;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#fff;cursor:pointer;padding:0;}
+.cal-cell{position:relative;height:34px;border-radius:6px;border:none;display:flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:800;color:#fff;cursor:pointer;padding:0;}
 .cal-cell.rest{background:var(--surface2);cursor:default;}
 .cal-cell.cal-easy{background:var(--accent);}
 .cal-cell.cal-tempo{background:var(--accent2);}
@@ -153,12 +155,14 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .cal-cell.cal-mobility{background:var(--amber);}
 .cal-cell.cal-rest{background:var(--steel);}
 .cal-cell.cal-skipped{background:var(--skip);color:var(--text2);}
+.cal-cell.cal-free{background:var(--free);}
+.cal-free-dot{position:absolute;top:3px;right:3px;width:7px;height:7px;border-radius:50%;background:var(--free);box-shadow:0 0 0 1.5px var(--bg);}
 .cal-cell.done{opacity:0.5;}
 .cal-legend{margin:16px 4px 0;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:13px 15px;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
 .cal-leg-item{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
 .cal-key{width:13px;height:13px;border-radius:4px;display:inline-block;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);}
 .cal-key.cal-easy{background:var(--accent);} .cal-key.cal-tempo{background:var(--accent2);} .cal-key.cal-hard{background:var(--warn);}
-.cal-key.cal-mobility{background:var(--amber);} .cal-key.cal-rest{background:var(--steel);} .cal-key.cal-skipped{background:var(--skip);}
+.cal-key.cal-mobility{background:var(--amber);} .cal-key.cal-rest{background:var(--steel);} .cal-key.cal-skipped{background:var(--skip);} .cal-key.cal-free{background:var(--free);}
 .cal-legend-hint{margin:11px 6px 4px;font-size:11px;color:var(--text3);text-align:center;}
 .plan-day-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;}
 .plan-day-row:last-child{border-bottom:none;}
@@ -1933,6 +1937,7 @@ function planMonday(){
 function cellDate(wi, ci){ const m = planMonday(); const d = new Date(m); d.setDate(m.getDate() + wi*7 + ci); return d; }
 function runDate(wi, run){ return cellDate(wi, DOW_COL[run.day] ?? 0); }
 function isPastDate(d){ return d < startOfToday(); }
+function dateKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; } // LOCAL date key
 
 // A run counts as "handled" for plan PROGRESSION if it was completed, swapped for
 // alternate training, OR is a scheduled day that has already passed. Swaps and
@@ -2147,12 +2152,29 @@ function renderPlanCalendar(){
   const cellClass = { easy:'cal-easy', long:'cal-easy', tempo:'cal-tempo', intervals:'cal-hard', race:'cal-hard' };
   const curWeekIdx = getCurrentWeek() - 1;
   const miles = APP.profile.units === 'miles';
+  // Free / unplanned runs get placed on the real date they happened — as a separate
+  // activity (they never count toward a planned session).
+  const freeByDate = {};
+  (APP.logs||[]).forEach(l=>{ if(l.wi==null && l.type==='free' && l.fullDate){ (freeByDate[dateKey(new Date(l.fullDate))] ||= []).push(l); } });
+  let freeShown = false;
   let html = `<div class="cal-row cal-headrow"><div class="cal-wk"></div>${dh.map(d=>`<div class="cal-dh">${d}</div>`).join('')}</div>`;
   APP.plan.forEach((week, wi) => {
     html += `<div class="cal-row${wi===curWeekIdx?' current':''}"><div class="cal-wk">W${week.weekNum}</div>`;
-    for(const day of allDays){
+    for(let ci=0; ci<allDays.length; ci++){
+      const day = allDays[ci];
+      const free = (freeByDate[dateKey(cellDate(wi, ci))] || [])[0];
       const ri = week.runs.findIndex(r=>r.day===day);
-      if(ri === -1){ html += `<div class="cal-cell rest"></div>`; continue; }
+      if(ri === -1){
+        // Non-training day: show a free run here if one happened, else an empty cell.
+        if(free){
+          freeShown = true;
+          const fd = (miles ? free.distKm*0.621371 : free.distKm).toFixed(1);
+          html += `<button class="cal-cell cal-free" onclick="openRunAnalytics('${free.id}',{from:'log'})" aria-label="${day} free run ${fd}">${fd}</button>`;
+        } else {
+          html += `<div class="cal-cell rest"></div>`;
+        }
+        continue;
+      }
       const run = week.runs[ri];
       const isDone = !!APP.completedRuns[`w${wi}r${ri}`];
       // A swapped day (mobility / rest) recolours the cell — unless the run was later done.
@@ -2165,7 +2187,9 @@ function renderPlanCalendar(){
       const aria = sub ? `Week ${week.weekNum} ${day} ${sub==='rest'?'rest day':'mobility / cross-training'}`
         : skipped ? `Week ${week.weekNum} ${day} skipped — tap to log what you did`
         : `Week ${week.weekNum} ${day} ${run.type}`;
-      html += `<button class="cal-cell ${cls}${isDone?' done':''}" onclick="openCalDay(${wi},${ri})" aria-label="${aria}">${label}</button>`;
+      // A free run on a scheduled day shows as a small corner dot (kept separate — the plan cell is unchanged).
+      const freeDot = free ? (freeShown = true, '<span class="cal-free-dot"></span>') : '';
+      html += `<button class="cal-cell ${cls}${isDone?' done':''}" onclick="openCalDay(${wi},${ri})" aria-label="${aria}">${label}${freeDot}</button>`;
     }
     html += `</div>`;
   });
@@ -2176,6 +2200,7 @@ function renderPlanCalendar(){
     <span class="cal-leg-item"><span class="cal-key cal-mobility"></span>Mobility</span>
     <span class="cal-leg-item"><span class="cal-key cal-rest"></span>Rest</span>
     <span class="cal-leg-item"><span class="cal-key cal-skipped"></span>Skipped</span>
+    ${freeShown ? '<span class="cal-leg-item"><span class="cal-key cal-free"></span>Free run</span>' : ''}
   </div>
   <div class="cal-legend-hint">Tap any day to see or log its details</div>`;
   el.innerHTML = html;
@@ -3893,7 +3918,7 @@ function updateLogScreen() {
         onclick="openRunAnalytics(${l.id}, {from:'log'})">
         <div class="log-date-block"><div class="log-day">${l.day}</div><div class="log-mon">${l.month}</div></div>
         <div class="log-details">
-          <div class="log-type">${l.type?l.type.toUpperCase():''}${l.wi!=null?' · W'+(l.wi+1):''}</div>
+          ${l.type==='free' ? '' : `<div class="log-type">${l.type?l.type.toUpperCase():''}${l.wi!=null?' · W'+(l.wi+1):''}</div>`}
           <div class="log-name">${l.name||'Run'}</div>
           <div class="log-stats">
             <div><div class="log-stat-val">${(l.distKm||0)>0?fmtShort(l.distKm):'—'}</div><div class="log-stat-lbl">Distance</div></div>
