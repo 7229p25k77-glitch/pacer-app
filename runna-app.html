@@ -16,6 +16,8 @@
   --accent2:#7B6FFF;--accent2-dim:rgba(123,111,255,0.12);
   --warn:#FF6B6B;--warn-dim:rgba(255,107,107,0.12);
   --amber:#F0A93B;--amber-dim:rgba(240,169,59,0.14);
+  --steel:#5E6E96;--steel-dim:rgba(94,110,150,0.16);
+  --skip:#3A3A48;
   --text:#F0F0F8;--text2:#8888AA;--text3:#55556A;
   --ink:#0A0A0F; /* dark text that sits on top of accent-colored buttons — same in both themes */
   --nav-h:60px;--radius:16px;--radius-sm:10px;
@@ -29,6 +31,8 @@ html.light{
   --accent2:#6A5CFF;--accent2-dim:rgba(106,92,255,0.12);
   --warn:#D94840;--warn-dim:rgba(217,72,64,0.12);
   --amber:#C9821A;--amber-dim:rgba(201,130,26,0.14);
+  --steel:#6E7C9E;--steel-dim:rgba(110,124,158,0.16);
+  --skip:#C3C7D2;
   --text:#16161D;--text2:#5C5C70;--text3:#9B9BAD;
 }
 html.light .today-hero{background:linear-gradient(135deg,#E2F6EE 0%,#E7EEF9 100%);border-color:#CBE8DB;}
@@ -146,10 +150,16 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .cal-cell.cal-easy{background:var(--accent);}
 .cal-cell.cal-tempo{background:var(--accent2);}
 .cal-cell.cal-hard{background:var(--warn);}
+.cal-cell.cal-mobility{background:var(--amber);}
+.cal-cell.cal-rest{background:var(--steel);}
+.cal-cell.cal-skipped{background:var(--skip);color:var(--text2);}
 .cal-cell.done{opacity:0.5;}
-.cal-legend{margin:14px 4px 6px;font-size:11px;color:var(--text2);display:flex;align-items:center;gap:6px;flex-wrap:wrap;line-height:1.6;}
-.cal-key{width:12px;height:12px;border-radius:3px;display:inline-block;}
+.cal-legend{margin:16px 4px 0;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;padding:13px 15px;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+.cal-leg-item{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:var(--text2);white-space:nowrap;}
+.cal-key{width:13px;height:13px;border-radius:4px;display:inline-block;flex-shrink:0;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);}
 .cal-key.cal-easy{background:var(--accent);} .cal-key.cal-tempo{background:var(--accent2);} .cal-key.cal-hard{background:var(--warn);}
+.cal-key.cal-mobility{background:var(--amber);} .cal-key.cal-rest{background:var(--steel);} .cal-key.cal-skipped{background:var(--skip);}
+.cal-legend-hint{margin:11px 6px 4px;font-size:11px;color:var(--text3);text-align:center;}
 .plan-day-row{display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);gap:10px;cursor:pointer;}
 .plan-day-row:last-child{border-bottom:none;}
 .plan-day-row:active{background:var(--surface2);}
@@ -977,6 +987,7 @@ function save() {
       profile: APP.profile,
       logs: APP.logs,
       completedRuns: APP.completedRuns,
+      substitutions: APP.substitutions,
       checkIns: APP.checkIns,
     }));
   } catch(e) {}
@@ -990,6 +1001,7 @@ function load() {
       if (p.profile) APP.profile = {...APP.profile, ...p.profile};
       if (p.logs) APP.logs = p.logs;
       if (p.completedRuns) APP.completedRuns = p.completedRuns;
+      if (p.substitutions) APP.substitutions = p.substitutions;
       if (p.checkIns) APP.checkIns = p.checkIns;
     }
   } catch(e) {}
@@ -1023,6 +1035,7 @@ function resetAppData(){
   APP.profile = JSON.parse(JSON.stringify(DEFAULT_PROFILE));
   APP.logs = [];
   APP.completedRuns = {};
+  APP.substitutions = {};
   APP.checkIns = [];
 }
 
@@ -1264,6 +1277,7 @@ function createProfileWithSettings(name, d){
   APP.profile.level = d.level;
   APP.profile.days  = d.days.length ? d.days : ['Wed','Fri','Sun'];
   APP.profile.units = d.units;
+  APP.profile.startDate = todayKey();   // anchor the plan to today's calendar date
   save();
   setGpsPref(d.gps);   // store the GPS choice made in the wizard
   bootProfile();
@@ -1677,6 +1691,7 @@ const APP = {
   },
   logs: [],          // completed run records
   completedRuns: {}, // key: "w{week}r{runIndex}" => true
+  substitutions: {}, // key: "w{week}r{runIndex}" => 'mobility' | 'rest' (day swapped for alt training)
   checkIns: [],      // body check-ins: {date,energy,legs,sleep,pain:[],score}
   plan: [],
   currentScreen: 'home-screen',
@@ -1899,10 +1914,40 @@ function dismissPlanAdjust(sig){
   renderPlanSuggestion();
 }
 
+// ── Plan ↔ real calendar dates ─────────────────────────────────────
+// The plan is anchored to profile.startDate; every run maps to a real date so
+// the calendar can tell a scheduled day is in the past (and, if unlogged, skipped).
+const DOW_COL = {Mon:0,Tue:1,Wed:2,Thu:3,Fri:4,Sat:5,Sun:6}; // calendar is Mon-first
+function dateFromKey(k){ const p=String(k).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+function startOfToday(){ const d=new Date(); return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function planStartDate(){
+  if(!APP.profile.startDate){ APP.profile.startDate = todayKey(); save(); } // lazy-init existing profiles
+  return dateFromKey(APP.profile.startDate);
+}
+// Monday on/before the plan start — the top-left of the calendar grid.
+function planMonday(){
+  const s = planStartDate();
+  const m = new Date(s); m.setDate(s.getDate() - ((s.getDay()+6)%7)); return m;
+}
+// Real date for calendar cell at week-row wi (0-based) and column ci (0=Mon..6=Sun).
+function cellDate(wi, ci){ const m = planMonday(); const d = new Date(m); d.setDate(m.getDate() + wi*7 + ci); return d; }
+function runDate(wi, run){ return cellDate(wi, DOW_COL[run.day] ?? 0); }
+function isPastDate(d){ return d < startOfToday(); }
+
+// A run counts as "handled" for plan PROGRESSION if it was completed, swapped for
+// alternate training, OR is a scheduled day that has already passed. Swaps and
+// past days must not block/push back the rest of the plan — the plan flows on.
+function isRunHandled(w, r) {
+  const k = `w${w}r${r}`;
+  if (APP.completedRuns[k] || APP.substitutions[k]) return true;
+  const run = APP.plan[w] && APP.plan[w].runs[r];
+  return !!(run && isPastDate(runDate(w, run)));  // past & unlogged = "skipped", doesn't block
+}
+
 function getCurrentWeek() {
   for (let w=0; w<APP.plan.length; w++) {
     const weekRuns = APP.plan[w].runs;
-    const allDone = weekRuns.every((_,ri)=>APP.completedRuns[`w${w}r${ri}`]);
+    const allDone = weekRuns.every((_,ri)=>isRunHandled(w,ri));
     if (!allDone) return w+1;
   }
   return APP.plan.length;
@@ -1911,7 +1956,7 @@ function getCurrentWeek() {
 function getNextRun() {
   for (let w=0; w<APP.plan.length; w++) {
     for (let r=0; r<APP.plan[w].runs.length; r++) {
-      if (!APP.completedRuns[`w${w}r${r}`]) return {w,r};
+      if (!isRunHandled(w,r)) return {w,r};
     }
   }
   return null;
@@ -2110,13 +2155,79 @@ function renderPlanCalendar(){
       if(ri === -1){ html += `<div class="cal-cell rest"></div>`; continue; }
       const run = week.runs[ri];
       const isDone = !!APP.completedRuns[`w${wi}r${ri}`];
+      // A swapped day (mobility / rest) recolours the cell — unless the run was later done.
+      const sub = !isDone ? APP.substitutions[`w${wi}r${ri}`] : null;
+      // A scheduled day that's already passed with no run logged and no swap = "skipped".
+      const skipped = !isDone && !sub && isPastDate(runDate(wi, run));
       const dist = (miles ? run.distKm*0.621371 : run.distKm).toFixed(1);
-      html += `<button class="cal-cell ${cellClass[run.type]||'cal-easy'}${isDone?' done':''}" onclick="openWorkoutFromPlan(${wi},${ri})" aria-label="Week ${week.weekNum} ${day} ${run.type}">${isDone?'✓':dist}</button>`;
+      const cls = sub ? (sub==='rest'?'cal-rest':'cal-mobility') : skipped ? 'cal-skipped' : (cellClass[run.type]||'cal-easy');
+      const label = isDone ? '✓' : sub ? (sub==='rest'?'🛌':'🚴') : skipped ? '–' : dist;
+      const aria = sub ? `Week ${week.weekNum} ${day} ${sub==='rest'?'rest day':'mobility / cross-training'}`
+        : skipped ? `Week ${week.weekNum} ${day} skipped — tap to log what you did`
+        : `Week ${week.weekNum} ${day} ${run.type}`;
+      html += `<button class="cal-cell ${cls}${isDone?' done':''}" onclick="openCalDay(${wi},${ri})" aria-label="${aria}">${label}</button>`;
     }
     html += `</div>`;
   });
-  html += `<div class="cal-legend"><span class="cal-key cal-easy"></span>Easy/Long <span class="cal-key cal-tempo"></span>Tempo <span class="cal-key cal-hard"></span>Hard/Race · tap a run to preview</div>`;
+  html += `<div class="cal-legend">
+    <span class="cal-leg-item"><span class="cal-key cal-easy"></span>Easy / Long</span>
+    <span class="cal-leg-item"><span class="cal-key cal-tempo"></span>Tempo</span>
+    <span class="cal-leg-item"><span class="cal-key cal-hard"></span>Hard / Race</span>
+    <span class="cal-leg-item"><span class="cal-key cal-mobility"></span>Mobility</span>
+    <span class="cal-leg-item"><span class="cal-key cal-rest"></span>Rest</span>
+    <span class="cal-leg-item"><span class="cal-key cal-skipped"></span>Skipped</span>
+  </div>
+  <div class="cal-legend-hint">Tap any day to see or log its details</div>`;
   el.innerHTML = html;
+}
+
+// Tapping any calendar day routes to the right place:
+//  • completed run  → that day's stats (its saved analytics)
+//  • skipped / swapped day → the "what did you do?" sheet to log it
+//  • upcoming / today → the workout preview
+function openCalDay(wi, ri){
+  const key = `w${wi}r${ri}`;
+  const run = APP.plan[wi] && APP.plan[wi].runs[ri];
+  if(!run) return;
+  if(APP.completedRuns[key]){
+    const log = APP.logs.find(l=>l.wi===wi && l.ri===ri);
+    if(log){ openRunAnalytics(log.id, {from:'log'}); return; }  // real stats for that day
+    openWorkoutFromPlan(wi, ri); return;                        // marked done w/o a log → preview
+  }
+  if(APP.substitutions[key] || isPastDate(runDate(wi, run))){ openDaySheet(wi, ri); return; } // swapped or skipped → log it
+  openWorkoutFromPlan(wi, ri);                                  // today / upcoming → preview
+}
+
+// Sheet to log (or change) what happened on a past/skipped or swapped day.
+function openDaySheet(wi, ri){
+  const key = `w${wi}r${ri}`;
+  const run = APP.plan[wi].runs[ri];
+  const cur = APP.substitutions[key] || null;
+  const typeLabels = {easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'Race Day'};
+  const dateStr = runDate(wi, run).toLocaleDateString(undefined, {weekday:'long', month:'short', day:'numeric'});
+  const opt = (val,icon,text)=>`<button class="edit-option-block${cur===val?' selected':''}" onclick="setDayOutcome(${wi},${ri},'${val}')">${icon} ${text}</button>`;
+  document.getElementById('edit-content').innerHTML = `
+    <div class="edit-sheet-title">${dateStr}</div>
+    <div class="edit-field"><div class="edit-label">Planned: ${typeLabels[run.type]||'Run'} · ${fmtShort(run.distKm)}. What did you do?</div>
+      <button class="edit-option-block" onclick="setDayOutcome(${wi},${ri},'run')">✅ I did the run</button>
+      ${opt('mobility','🚴','Mobility / cross-training')}
+      ${opt('rest','🛌','Rest day')}
+      ${cur ? `<button class="edit-option-block" onclick="setDayOutcome(${wi},${ri},'clear')">↩︎ Leave unlogged</button>` : ''}
+    </div>
+    <button class="edit-cancel-btn" onclick="closeEdit()">Cancel</button>`;
+  document.getElementById('edit-overlay').classList.add('visible');
+}
+function setDayOutcome(wi, ri, outcome){
+  const key = `w${wi}r${ri}`;
+  delete APP.substitutions[key];
+  delete APP.completedRuns[key];
+  if(outcome==='run')       APP.completedRuns[key] = true;
+  else if(outcome==='mobility') APP.substitutions[key] = 'mobility';
+  else if(outcome==='rest')     APP.substitutions[key] = 'rest';
+  // 'clear' leaves both unset → reverts to skipped (if past) or upcoming
+  save();
+  closeEdit();
+  renderHome(); renderPlan();
 }
 
 // ════════════════════════════════════════
@@ -2178,15 +2289,15 @@ function openWorkoutFromPlan(wi, ri) {
 }
 
 function isRunLocked(wi, ri) {
-  // All runs in previous weeks must be done
+  // All runs in previous weeks must be handled (done or swapped)
   for (let w=0; w<wi; w++) {
     for (let r=0; r<APP.plan[w].runs.length; r++) {
-      if (!APP.completedRuns[`w${w}r${r}`]) return true;
+      if (!isRunHandled(w,r)) return true;
     }
   }
-  // All runs before this one in the same week must be done
+  // All runs before this one in the same week must be handled
   for (let r=0; r<ri; r++) {
-    if (!APP.completedRuns[`w${wi}r${r}`]) return true;
+    if (!isRunHandled(wi,r)) return true;
   }
   return false;
 }
@@ -2873,7 +2984,7 @@ function finishRun() {
   };
   APP.logs.unshift(logEntry);
   LAST_RUN_ID = logEntry.id;
-  if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; APP.profile.restDay = null; }  // ran → clear any "resting today"
+  if (cw) { APP.completedRuns[`w${cw.wi}r${cw.ri}`] = true; APP.profile.restDay = null; delete APP.substitutions[`w${cw.wi}r${cw.ri}`]; }  // ran → clear any "resting today" / swap marker
   save();
   renderHome(); renderPlan(); updateLogScreen();
   document.getElementById('cs-dist').textContent = fmtShort(distKm);
@@ -3622,24 +3733,35 @@ function setPainLevel(n){
 }
 // Pain-day alternatives to running (shown at pain 3+). Choosing any of them means
 // "not running today", so we push today's run to the next training day.
-function deferTodaysRun(){
+function deferTodaysRun(subType){
   APP.profile.restDay = todayKey();
+  // Mark the run being pushed so the calendar can colour that day by what
+  // it was swapped for ('mobility' | 'rest'). Clears when that run is done.
+  const nx = getNextRun();
+  if (nx && subType) APP.substitutions[`w${nx.w}r${nx.r}`] = subType;
   save();
   renderHome();   // update the Today card ("resting today · next run …")
+  renderPlan();   // recolour the plan/calendar day
 }
 function scrollToRecovery(){
-  deferTodaysRun();
-  const el=document.getElementById('recovery-anchor');
-  if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  deferTodaysRun('mobility');
+  // Confirm the choice, THEN take them to the recovery options on tap.
+  showModal('Low-impact cardio 🚴', "Got it — today's run has moved to your next training day. Log a low-impact session (cycle, swim, elliptical…) below to keep your fitness up while your body recovers.", 'Show me options', ()=>{
+    const el=document.getElementById('recovery-anchor');
+    if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
 }
 function openStrengthForPain(){
-  deferTodaysRun();
-  const areas=(checkinDraft && checkinDraft.pain || []).filter(p=>p!=='none');
-  for(const a of areas){ const ids=AREA_INJURY[a]; if(ids && ids.length){ openInjury(ids[0]); return; } }
-  const el=document.querySelector('.inj-disclaimer'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  deferTodaysRun('mobility');
+  // Confirm the choice, THEN open the targeted guidance on tap.
+  showModal('Strength & mobility 🦵', "Got it — today's run has moved to your next training day. Here's targeted strength & mobility work for the area you flagged.", 'Show me', ()=>{
+    const areas=(checkinDraft && checkinDraft.pain || []).filter(p=>p!=='none');
+    for(const a of areas){ const ids=AREA_INJURY[a]; if(ids && ids.length){ openInjury(ids[0]); return; } }
+    const el=document.querySelector('.inj-disclaimer'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
 }
 function suggestRest(){
-  deferTodaysRun();
+  deferTodaysRun('rest');
   showModal('Rest today 🛌', 'Good call — with pain this high, rest lets tissues repair and often does more for your running than pushing through. Your run has moved to your next training day.', 'OK', null);
 }
 function saveCheckIn(){
