@@ -571,6 +571,11 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 .wiz-q{font-size:17px;font-weight:700;text-align:center;margin-bottom:14px;color:var(--text);}
 .wiz-help{font-size:13px;color:var(--text2);line-height:1.5;text-align:center;margin-bottom:16px;}
 .wiz-opts{display:flex;flex-direction:column;gap:0;}
+.slider-value{text-align:center;font-size:30px;font-weight:800;color:var(--accent);margin:4px 0 18px;}
+.wiz-slider{-webkit-appearance:none;appearance:none;width:100%;height:8px;border-radius:6px;background:var(--surface2);outline:none;cursor:pointer;}
+.wiz-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--accent);border:3px solid var(--bg);box-shadow:0 1px 5px rgba(0,0,0,0.4);cursor:pointer;}
+.wiz-slider::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--accent);border:3px solid var(--bg);box-shadow:0 1px 5px rgba(0,0,0,0.4);cursor:pointer;}
+.slider-ends{display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-top:10px;}
 .wiz-result{margin-top:16px;text-align:center;font-size:12px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text2);}
 .wiz-result b{display:block;font-size:22px;font-weight:800;letter-spacing:-0.3px;text-transform:none;color:var(--accent);margin-top:4px;}
 
@@ -1162,7 +1167,7 @@ function showCreateProfile(firstTime){ startWizard(firstTime); }
 
 function startWizard(firstTime){
   WIZ = { step:0, firstTime:!!firstTime,
-    data:{ name:'', goal:'5K', weeks:'8', cardio:1, runnow:1, strength:1, level:'Beginner', _levelManual:false, days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
+    data:{ name:'', goal:'5K', weeks:'8', cardio:1, runnow:10, strength:1, level:'Beginner', _levelManual:false, days:['Wed','Fri','Sun'], units:'km', gps:'yes' } };
   document.getElementById('gate-list').style.display = 'none';
   document.getElementById('gate-add-btn').style.display = 'none';
   document.getElementById('gate-close').style.display = (firstTime || !REG.profiles.length) ? 'none' : '';
@@ -1196,8 +1201,15 @@ function renderWizard(){
       <div class="wiz-help">Any regular aerobic exercise — running, cycling, swimming, sport, brisk walking.</div>` +
       assessBlocks('cardio', [['0','New to it / rarely'],['1','Some — 1–2× a week'],['2','Regular — 3+× a week'],['3','Athlete / competitive']], d.cardio);
   } else if (step === 'runnow'){
-    body = `<div class="wiz-q">How long can you run non-stop right now?</div>` +
-      assessBlocks('runnow', [['0','Not yet'],['1','A few minutes'],['2','About 20–30 minutes'],['3','45 minutes or more']], d.runnow);
+    const rn = +d.runnow || 0;
+    const pct = (rn / 30) * 100;
+    body = `<div class="wiz-q">How long can you run non-stop right now?</div>
+      <div class="wiz-help">Drag to set how many minutes you can run without stopping — a rough guess is fine.</div>
+      <div class="slider-value" id="runnow-val">${rn>=30?'30+':rn} min</div>
+      <input type="range" class="wiz-slider" min="0" max="30" step="1" value="${rn}"
+        style="background:linear-gradient(to right, var(--accent) ${pct}%, var(--surface2) ${pct}%);"
+        oninput="wizSlide(this)" aria-label="Minutes you can run non-stop">
+      <div class="slider-ends"><span>0 min</span><span>30+ min</span></div>`;
   } else if (step === 'strength'){
     body = `<div class="wiz-q">Strength &amp; mobility routine?</div>
       <div class="wiz-help">Gym, weights, yoga, mobility or stretching work.</div>` +
@@ -1240,13 +1252,22 @@ function assessBlocks(key, pairs, current){
 // Map the 3 assessment answers to one of the 6 levels. Current running ability
 // leads; recent cardio experience nudges within a tier; a strength/mobility base
 // supports a touch more load, while none keeps the harder end conservative.
-function computeAssessedLevel(cardio, runnow, strength){
-  cardio=+cardio||0; runnow=+runnow||0; strength=+strength||0;
+// "Minutes you can run non-stop" (slider, 0–30+) → the 4 ability tiers.
+function runnowBucket(min){
+  min = +min || 0;
+  if(min <= 0) return 0;   // can't run yet
+  if(min < 10) return 1;   // a few minutes
+  if(min < 30) return 2;   // building up (10–29 min)
+  return 3;                // 30+ min — a strong base
+}
+function computeAssessedLevel(cardio, runnowMin, strength){
+  cardio=+cardio||0; strength=+strength||0;
+  const runnow = runnowBucket(runnowMin);
   let idx;
   if(runnow===0)      idx = cardio>=2 ? 1 : 0;                    // can't run yet → Newbie / Beginner
   else if(runnow===1) idx = cardio>=2 ? 2 : 1;                    // a few min → Beginner / Adv Beginner
-  else if(runnow===2) idx = cardio>=2 ? 3 : 2;                    // 20–30 min → Adv Beginner / Intermediate
-  else                idx = cardio>=3 ? 5 : (cardio>=1 ? 4 : 3);  // 45+ min → Intermediate / Adv Int / Advanced
+  else if(runnow===2) idx = cardio>=2 ? 3 : 2;                    // 10–29 min → Adv Beginner / Intermediate
+  else                idx = cardio>=3 ? 5 : (cardio>=1 ? 4 : 3);  // 30+ min → Intermediate / Adv Int / Advanced
   if(strength>=2 && runnow>=1 && idx<5) idx += 1;                 // solid S&C base → a touch more
   if(strength===0 && idx>3) idx -= 1;                             // no base → keep the top end cautious
   return LEVELS[Math.max(0, Math.min(LEVELS.length-1, idx))];
@@ -1256,6 +1277,17 @@ function wizAssess(key, val){
   WIZ.data._levelManual = false;
   WIZ.data.level = computeAssessedLevel(WIZ.data.cardio, WIZ.data.runnow, WIZ.data.strength);
   renderWizard();
+}
+// Live slider (minutes you can run) — update value + fill without a full re-render
+// so the drag stays smooth. Recompute the recommended level as it moves.
+function wizSlide(el){
+  const val = +el.value, max = +el.max || 30;
+  WIZ.data.runnow = val;
+  WIZ.data._levelManual = false;
+  WIZ.data.level = computeAssessedLevel(WIZ.data.cardio, WIZ.data.runnow, WIZ.data.strength);
+  const pct = (val / max) * 100;
+  el.style.background = `linear-gradient(to right, var(--accent) ${pct}%, var(--surface2) ${pct}%)`;
+  const lbl = document.getElementById('runnow-val'); if(lbl) lbl.textContent = (val>=max?'30+':val) + ' min';
 }
 function wizPickLevel(val){ WIZ.data.level = val; WIZ.data._levelManual = true; renderWizard(); }
 function wizToggleDay(day){
