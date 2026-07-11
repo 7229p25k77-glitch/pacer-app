@@ -300,6 +300,9 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 .edit-option.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
 .edit-option-block{display:block;width:100%;padding:13px 16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:14px;font-weight:500;cursor:pointer;margin-bottom:8px;text-align:left;}
 .edit-option-block.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.edit-option-block .opt-main{display:block;font-weight:700;color:var(--text);}
+.edit-option-block .opt-sub{display:block;font-size:12px;font-weight:500;color:var(--text2);margin-top:3px;line-height:1.35;}
+.edit-option-block.selected .opt-main{color:var(--accent);}
 .edit-day-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
 .edit-day-btn{aspect-ratio:1;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--text2);font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
 .edit-day-btn.selected{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
@@ -1179,7 +1182,13 @@ function renderWizard(){
     body = `<div class="wiz-q">What's your name?</div>
       <input class="edit-input" id="wiz-name" type="text" maxlength="20" placeholder="Enter a name" value="${escapeHtml(d.name)}" style="text-align:center;">`;
   } else if (step === 'goal'){
-    body = `<div class="wiz-q">What's your goal?</div>` + optBlocks('goal', [['5K','5K'],['10K','10K'],['Half','Half Marathon'],['Marathon','Marathon']], d.goal);
+    body = `<div class="wiz-q">What's your goal?</div>` + optBlocks('goal', [
+      ['5K','5K','A perfect first target — great for new runners'],
+      ['10K','10K','A step up — for runners with some base fitness'],
+      ['Half','Half Marathon','A big endurance challenge — for consistent runners'],
+      ['Marathon','Marathon','The ultimate distance — for dedicated, well-trained runners'],
+      ['None','Just run','No race to train for — stay active at your own pace'],
+    ], d.goal);
   } else if (step === 'weeks'){
     body = `<div class="wiz-q">How long is your plan?</div>` + optBlocks('weeks', [['4','4 weeks'],['6','6 weeks'],['8','8 weeks'],['10','10 weeks'],['12','12 weeks'],['14','14 weeks'],['16','16 weeks']], d.weeks);
   } else if (step === 'cardio'){
@@ -1222,7 +1231,7 @@ function renderWizard(){
 }
 
 function optBlocks(key, pairs, current){
-  return `<div class="wiz-opts">` + pairs.map(p=>`<button class="edit-option-block${current===p[0]?' selected':''}" onclick="wizPick('${key}','${p[0]}')">${p[1]}</button>`).join('') + `</div>`;
+  return `<div class="wiz-opts">` + pairs.map(p=>`<button class="edit-option-block${current===p[0]?' selected':''}" onclick="wizPick('${key}','${p[0]}')">${p[2]?`<span class="opt-main">${p[1]}</span><span class="opt-sub">${p[2]}</span>`:p[1]}</button>`).join('') + `</div>`;
 }
 function wizPick(key, val){ WIZ.data[key] = val; renderWizard(); }
 function assessBlocks(key, pairs, current){
@@ -1394,6 +1403,10 @@ function weekTitle(w, weeks, isRecovery, isTaper, isRace){
   if (frac < 0.67) return 'Building Endurance';
   return 'Peak Training';
 }
+// Display name for the goal ("None" is the "just run" / no-race option).
+function goalLabel(goal){ return goal === 'None' ? 'Just Run' : (goal || '5K'); }
+// Profile-row goal string, e.g. "Beginner · 5K Goal" or "Beginner · Just Run".
+function goalRowLabel(level, goal){ return `${level||'Beginner'} · ${goal==='None' ? 'Just Run' : goalLabel(goal)+' Goal'}`; }
 // The three easiest levels build with run/walk intervals; the rest run continuously.
 function usesRunWalk(level){ return level==='Newbie' || level==='Beginner' || level==='Advanced Beginner'; }
 // How far each run/walk level travels through the beginner curriculum (as a
@@ -1407,7 +1420,10 @@ function makePlan(goal, level, runDays, planWeeks) {
     '10K':     { peak: 10.0, weeks: 10, startKm: 4.0 },
     'Half':    { peak: 21.1, weeks: 12, startKm: 6.0 },
     'Marathon':{ peak: 42.2, weeks: 16, startKm: 8.0 },
+    // "Just run" — a general-fitness plan: no race target, gentle cap on distance.
+    'None':    { peak: 6.0,  weeks: 8,  startKm: 2.5 },
   };
+  const noRace = goal === 'None';   // no race day / taper — just keep running
   const levelPace = { 'Newbie':10.5, 'Beginner':9.5, 'Advanced Beginner':8.5, 'Intermediate':7.5, 'Advanced Intermediate':6.75, 'Advanced':6.0 };
   const levelMult = { 'Newbie':0.85, 'Beginner':1.0, 'Advanced Beginner':1.15, 'Intermediate':1.3, 'Advanced Intermediate':1.45, 'Advanced':1.6 };
   const cfg        = goalConfig[goal] || goalConfig['5K'];
@@ -1444,14 +1460,15 @@ function makePlan(goal, level, runDays, planWeeks) {
 
   for (let w = 0; w < weeks; w++) {
     const isRecovery = (w % 4 === 3) && w > 0 && w < weeks - 2;
-    const isRace     = w === weeks - 1;
-    const isTaper    = w === weeks - 2;
+    const isRace     = !noRace && (w === weeks - 1);
+    const isTaper    = !noRace && (w === weeks - 2);
 
     let longRunKm;
     if (isRace)          longRunKm = cfg.peak;
     else if (isTaper)    longRunKm = peakKm * 0.75;
     else if (isRecovery) longRunKm = startKm + (peakKm - startKm) * (w / weeks) * 0.7;
     else                 longRunKm = startKm + (peakKm - startKm) * (w / (weeks - 2));
+    if (noRace) longRunKm = Math.min(longRunKm, peakKm);   // cap distance — no race build
     longRunKm = Math.round(longRunKm * 10) / 10;
 
     const runs = [];
@@ -1473,8 +1490,8 @@ function makePlan(goal, level, runDays, planWeeks) {
         const sched = weekSessions[Math.min(variantIdx, weekSessions.length - 1)];
         sessionVariant = sched;
         distKm = sessionDistKm(sched, pace);
-        // Final week's last run = race
-        type = (w === weeks - 1 && d === days - 1) ? 'race' : (sched.focus === 'Endurance' && sessIdx >= 5 ? 'long' : 'easy');
+        // Final week's last run = race (unless there's no race goal)
+        type = (!noRace && w === weeks - 1 && d === days - 1) ? 'race' : (sched.focus === 'Endurance' && sessIdx >= 5 ? 'long' : 'easy');
       } else {
         // Non-beginner: vary by week pattern
         const pattern = nonBeginnerVariants[weeks <= 1 ? 0 : Math.round(w / (weeks - 1) * (nonBeginnerVariants.length - 1))];
@@ -1777,8 +1794,8 @@ function applyProfileToUI() {
   // Goal
   const srGoal = document.getElementById('sr-goal');
   const goalEl = document.getElementById('profile-goal-el');
-  if (srGoal) srGoal.textContent = p.goal || '5K';
-  if (goalEl) goalEl.textContent = `${p.level || 'Beginner'} · ${p.goal || '5K'} Goal`;
+  if (srGoal) srGoal.textContent = goalLabel(p.goal);
+  if (goalEl) goalEl.textContent = goalRowLabel(p.level, p.goal);
   // Plan length
   const srWeeks = document.getElementById('sr-weeks');
   if (srWeeks) srWeeks.textContent = (p.planWeeks || 8) + ' weeks';
@@ -1983,10 +2000,11 @@ function renderTodayCard() {
   const today = dayNames[new Date().getDay()];
 
   if (!next) {
+    const noRace = APP.profile.goal === 'None';
     el.innerHTML = `<div class="today-hero">
       <div class="today-eyebrow">You did it! 🏁</div>
       <div class="today-run-name">Plan Complete!</div>
-      <div class="today-run-desc">Congratulations — you've completed the full training plan. Time to race!</div>
+      <div class="today-run-desc">Congratulations — you've completed the full training plan. ${noRace ? 'Keep the streak going!' : 'Time to race!'}</div>
     </div>`;
     return;
   }
@@ -2072,7 +2090,7 @@ function renderPlan() {
   const typeLabels={easy:'Easy Run',tempo:'Tempo Run',long:'Long Run',intervals:'Intervals',race:'🏁 Race Day'};
   const dotColors={easy:'pdr-green',tempo:'pdr-purple',long:'pdr-green',intervals:'pdr-orange',race:'pdr-orange'};
   const allDays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  document.getElementById('plan-sub').textContent = `${APP.profile.level} ${APP.profile.goal} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
+  document.getElementById('plan-sub').textContent = `${APP.profile.level} ${goalLabel(APP.profile.goal)} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
 
   let html = '';
   APP.plan.forEach((week, wi) => {
@@ -4437,12 +4455,12 @@ const EDITS = {
       }
       save(); syncRegistryName();
       var sa=document.getElementById('sr-active-name'); if(sa) sa.textContent=v;}},
-  goal:{title:'Race Goal',render:p=>`
+  goal:{title:'Your Goal',render:p=>`
     <div class="edit-field"><div class="edit-label">Select goal</div>
-    ${['5K','10K','Half','Marathon'].map(g=>`<button class="edit-option-block${p.goal===g?' selected':''}" onclick="pick('goal','${g}',this)">${g}</button>`).join('')}</div>`,
+    ${[['5K','5K'],['10K','10K'],['Half','Half'],['Marathon','Marathon'],['None','Just Run']].map(([g,lbl])=>`<button class="edit-option-block${p.goal===g?' selected':''}" onclick="pick('goal','${g}',this)">${lbl}</button>`).join('')}</div>`,
     save:()=>{
-      document.getElementById('sr-goal').textContent=APP.profile.goal;
-      document.getElementById('profile-goal-el').textContent=`${APP.profile.level} · ${APP.profile.goal} Goal`;
+      document.getElementById('sr-goal').textContent=goalLabel(APP.profile.goal);
+      document.getElementById('profile-goal-el').textContent=goalRowLabel(APP.profile.level, APP.profile.goal);
       rebuildPlan();save();}},
   weeks:{title:'Plan Length',render:p=>`
     <div class="edit-field"><div class="edit-label">How many weeks?</div>
@@ -4458,7 +4476,7 @@ const EDITS = {
       <button class="edit-day-btn${p.days.includes(d)?' selected':''}" onclick="toggleDay(this,'${d}')">${d}</button>`).join('')}</div></div>`,
     save:()=>{
       document.getElementById('sr-days').textContent=APP.profile.days.join(', ')||'None';
-      document.getElementById('plan-sub').textContent=`${APP.profile.level} ${APP.profile.goal} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
+      document.getElementById('plan-sub').textContent=`${APP.profile.level} ${goalLabel(APP.profile.goal)} · ${APP.plan.length} weeks · ${APP.profile.days.join(', ')}`;
       rebuildPlan();save();}},
   level:{title:'Experience Level',render:p=>`
     <div class="edit-field"><div class="edit-label">Your level — affects pace zones &amp; distances</div>
