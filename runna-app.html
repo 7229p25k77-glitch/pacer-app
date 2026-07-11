@@ -448,6 +448,13 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 
 /* HEALTH / BODY CHECK-IN */
 .hl-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);margin:0 16px 12px;padding:16px;}
+.ci-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;}
+.ci-bar:active{background:var(--surface2);}
+.ci-bar .ci-bar-txt{min-width:0;}
+.ci-bar .hl-card-sub{display:flex;align-items:center;gap:7px;}
+.ci-bar-arrow{color:var(--text3);font-size:24px;line-height:1;flex-shrink:0;}
+.ci-bar-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.ci-bar-dot.green{background:var(--accent);} .ci-bar-dot.amber{background:var(--amber);} .ci-bar-dot.red{background:var(--warn);}
 .hl-card-title{font-size:16px;font-weight:800;margin-bottom:2px;}
 .hl-card-sub{font-size:12.5px;color:var(--text2);margin-bottom:14px;line-height:1.4;}
 .hl-sec-title{font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:var(--text2);margin:18px 16px 8px;}
@@ -690,6 +697,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="screen-sub">Tune in to how you feel, and learn to run injury-free</div>
   </div>
   <div class="scroll-area" id="health-scroll"></div>
+</div>
+
+<!-- DAILY CHECK-IN (opened from the Health page) -->
+<div class="screen" id="checkin-screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('health-screen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Health
+    </button>
+    <div class="screen-title">Daily Check-in</div>
+  </div>
+  <div class="scroll-area" id="checkin-scroll"></div>
 </div>
 
 <!-- INJURY DETAIL OVERLAY -->
@@ -1863,16 +1881,17 @@ function setTodayLabel() {
 // ════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════
-const SCREENS=['home-screen','plan-screen','log-screen','health-screen','profile-screen','workout-screen'];
-const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','health-screen':'nav-health','profile-screen':'nav-profile'};
+const SCREENS=['home-screen','plan-screen','log-screen','health-screen','checkin-screen','profile-screen','workout-screen'];
+const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','health-screen':'nav-health','checkin-screen':'nav-health','profile-screen':'nav-profile'};
 function showScreen(id) {
   SCREENS.forEach(s=>document.getElementById(s).classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
   if (id==='health-screen') renderHealth();
+  if (id==='checkin-screen') renderCheckinScreen();
   if (id==='profile-screen') updateAchievementsRow();
-  if (id!=='workout-screen') APP.prevScreen=id;
+  if (id!=='workout-screen' && id!=='checkin-screen') APP.prevScreen=id;
   APP.currentScreen=id;
 }
 function closeWorkout() { showScreen(APP.prevScreen); }
@@ -3730,8 +3749,33 @@ function renderHealth(){
   if(!el) return;
   if(!checkinDraft) loadCheckinDraft();
   const keepScroll = el.scrollTop;
-  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinCard() + renderRecoveryCard() + renderRecentCheckins() + renderInjurySection();
+  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinBar() + renderRecoveryCard() + renderRecentCheckins() + renderInjurySection();
   el.scrollTop = keepScroll;   // taps re-render; don't jump back to the top
+}
+
+// The Health page shows a bar summarising today's check-in; tapping it opens the
+// full quiz on its own screen (renderCheckinScreen), which reuses renderCheckinCard.
+function renderCheckinBar(){
+  const done = (APP.checkIns||[]).find(c=>c.date===todayKey());
+  const words = { green:'Good to go', amber:'Take it easier', red:'Rest advised' };
+  const status = done
+    ? `<span class="ci-bar-dot ${done.cls}"></span>Done today · ${words[done.cls]||'Logged'}`
+    : `Tap to check in — takes about a minute`;
+  return `<div class="hl-card ci-bar" onclick="showScreen('checkin-screen')">
+    <div class="ci-bar-txt">
+      <div class="hl-card-title">How are you feeling today?</div>
+      <div class="hl-card-sub" style="margin-bottom:0;">${status}</div>
+    </div>
+    <div class="ci-bar-arrow">›</div>
+  </div>`;
+}
+function renderCheckinScreen(){
+  const el=document.getElementById('checkin-scroll');
+  if(!el) return;
+  if(!checkinDraft) loadCheckinDraft();
+  const keepScroll = el.scrollTop;
+  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinCard();
+  el.scrollTop = keepScroll;
 }
 
 function renderCheckinCard(){
@@ -3784,7 +3828,7 @@ function setReadiness(key,val){
   if(!checkinDraft) loadCheckinDraft();
   checkinDraft[key] = (checkinDraft[key]===val) ? null : val;
   checkinDraft.saved=false;
-  renderHealth();
+  renderCheckinScreen();
 }
 function togglePain(id){
   if(!checkinDraft) loadCheckinDraft();
@@ -3798,13 +3842,13 @@ function togglePain(id){
   }
   if(!checkinDraft.pain.some(p=>p!=='none')) checkinDraft.painLevel=null;  // no pain → clear severity
   checkinDraft.saved=false;
-  renderHealth();
+  renderCheckinScreen();
 }
 function setPainLevel(n){
   if(!checkinDraft) loadCheckinDraft();
   checkinDraft.painLevel = (checkinDraft.painLevel===n) ? null : n;
   checkinDraft.saved=false;
-  renderHealth();
+  renderCheckinScreen();
 }
 // Pain-day alternatives to running (shown at pain 3+). Choosing any of them means
 // "not running today", so we push today's run to the next training day.
@@ -3822,8 +3866,8 @@ function scrollToRecovery(){
   deferTodaysRun('mobility');
   // Confirm the choice, THEN take them to the recovery options on tap.
   showModal('Low-impact cardio 🚴', "Got it — today's run has moved to your next training day. Log a low-impact session (cycle, swim, elliptical…) below to keep your fitness up while your body recovers.", 'Show me options', ()=>{
-    const el=document.getElementById('recovery-anchor');
-    if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    showScreen('health-screen');   // recovery section lives on the Health page
+    setTimeout(()=>{ const el=document.getElementById('recovery-anchor'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 60);
   });
 }
 function openStrengthForPain(){
@@ -3832,7 +3876,8 @@ function openStrengthForPain(){
   showModal('Strength & mobility 🦵', "Got it — today's run has moved to your next training day. Here's targeted strength & mobility work for the area you flagged.", 'Show me', ()=>{
     const areas=(checkinDraft && checkinDraft.pain || []).filter(p=>p!=='none');
     for(const a of areas){ const ids=AREA_INJURY[a]; if(ids && ids.length){ openInjury(ids[0]); return; } }
-    const el=document.querySelector('.inj-disclaimer'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+    showScreen('health-screen');   // injury guidance section lives on the Health page
+    setTimeout(()=>{ const el=document.querySelector('.inj-disclaimer'); if(el) el.scrollIntoView({ behavior:'smooth', block:'start' }); }, 60);
   });
 }
 function suggestRest(){
@@ -3849,7 +3894,7 @@ function saveCheckIn(){
   if(APP.checkIns.length>60) APP.checkIns=APP.checkIns.slice(0,60);
   d.saved=true;
   save();
-  renderHealth();
+  showScreen('health-screen');   // back to the Health page — the bar now shows today's verdict
 }
 
 function renderRecentCheckins(){
