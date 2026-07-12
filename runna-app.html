@@ -3749,7 +3749,7 @@ function renderHealth(){
   if(!el) return;
   if(!checkinDraft) loadCheckinDraft();
   const keepScroll = el.scrollTop;
-  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinBar() + renderRecoveryCard() + renderRecentCheckins() + renderInjurySection();
+  el.innerHTML = '<div style="height:8px;"></div>' + renderCheckinBar() + renderRecentCheckins() + renderRecoveryCard() + renderInjurySection();
   el.scrollTop = keepScroll;   // taps re-render; don't jump back to the top
 }
 
