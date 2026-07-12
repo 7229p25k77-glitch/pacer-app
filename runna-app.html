@@ -270,6 +270,26 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 
 #modal-overlay{display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
 #modal-overlay.visible{display:flex;}
+/* Rest caution (bottom sheet) — sits above the warm-up prompt */
+#restcaution-overlay{display:none;position:fixed;inset:0;z-index:570;background:rgba(0,0,0,0.72);align-items:flex-end;justify-content:center;}
+#restcaution-overlay.visible{display:flex;}
+/* Warm-up prompt (bottom sheet) + full-screen guided player */
+#warmup-prompt-overlay{display:none;position:fixed;inset:0;z-index:560;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#warmup-prompt-overlay.visible{display:flex;}
+#warmup-overlay{display:none;position:fixed;inset:0;z-index:450;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:var(--safe-top) 28px 40px;text-align:center;}
+#warmup-overlay.visible{display:flex;}
+.wu-inner{width:100%;max-width:460px;display:flex;flex-direction:column;align-items:center;}
+.wu-step{font-size:13px;font-weight:800;letter-spacing:0.5px;text-transform:uppercase;color:var(--accent);margin-bottom:18px;}
+.wu-name{font-size:26px;font-weight:800;line-height:1.2;margin-bottom:12px;}
+.wu-time{font-size:56px;font-weight:800;color:var(--accent);margin-bottom:14px;font-variant-numeric:tabular-nums;}
+.wu-cue{font-size:15px;color:var(--text2);line-height:1.5;margin-bottom:26px;}
+.wu-bar{width:100%;height:8px;border-radius:6px;background:var(--surface2);overflow:hidden;margin-bottom:28px;}
+.wu-bar-fill{height:100%;background:var(--accent);width:0;transition:width 0.35s linear;}
+.wu-actions{display:flex;gap:10px;width:100%;margin-bottom:14px;}
+.wu-btn-secondary,.wu-btn-primary{flex:1;padding:15px;border-radius:14px;border:none;font-size:15px;font-weight:700;cursor:pointer;}
+.wu-btn-secondary{background:var(--surface2);color:var(--text);}
+.wu-btn-primary{background:var(--accent);color:var(--ink);}
+.wu-cancel{background:none;border:none;color:var(--text3);font-size:14px;padding:8px;cursor:pointer;}
 .modal-sheet{background:var(--surface);border-radius:20px 20px 0 0;border:1px solid var(--border);padding:24px 20px 36px;width:100%;max-width:480px;}
 .modal-title{font-size:18px;font-weight:800;margin-bottom:8px;}
 .modal-body{font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px;}
@@ -805,7 +825,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
       <div class="coach-tip-text" id="wo-tip"></div>
     </div>
     <div class="start-btn-wrap">
-      <button class="start-btn" id="wo-start-btn" onclick="startRun()">Start Run →</button>
+      <button class="start-btn" id="wo-start-btn" onclick="onStartRunTap()">Start Run →</button>
     </div>
   </div>
 </div>
@@ -909,6 +929,42 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="modal-body" id="modal-body"></div>
     <button class="modal-btn modal-btn-warn" id="modal-confirm-btn" onclick="modalConfirm()">Confirm</button>
     <button class="modal-btn modal-btn-secondary" id="modal-cancel-btn" onclick="closeModal()">Cancel</button>
+  </div>
+</div>
+
+<!-- REST CAUTION (shown if today's check-in verdict was "rest / don't run") -->
+<div id="restcaution-overlay" onclick="closeRestCaution()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">Your check-in said rest today ⚠️</div>
+    <div class="modal-body" id="restcaution-body"></div>
+    <button class="modal-btn modal-btn-primary" onclick="closeRestCaution()">Rest instead</button>
+    <button class="modal-btn modal-btn-warn" onclick="runAnyway()">Run anyway</button>
+  </div>
+</div>
+
+<!-- WARM-UP PROMPT (offered when starting a plan workout) -->
+<div id="warmup-prompt-overlay" onclick="closeWarmupPrompt()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">Warm up first? 🤸</div>
+    <div class="modal-body">A quick 5-minute warm-up — tailored to how you're feeling today — loosens you up and helps lower injury risk. Not medical advice.</div>
+    <button class="modal-btn modal-btn-primary" onclick="warmupThenRun()">Warm up (5 min)</button>
+    <button class="modal-btn modal-btn-secondary" onclick="skipWarmupStartRun()">Skip — start run</button>
+  </div>
+</div>
+
+<!-- WARM-UP PLAYER -->
+<div id="warmup-overlay">
+  <div class="wu-inner">
+    <div class="wu-step" id="wu-step"></div>
+    <div class="wu-name" id="wu-name"></div>
+    <div class="wu-time" id="wu-time"></div>
+    <div class="wu-cue" id="wu-cue"></div>
+    <div class="wu-bar"><div class="wu-bar-fill" id="wu-bar-fill"></div></div>
+    <div class="wu-actions">
+      <button class="wu-btn-secondary" onclick="warmupNext()">Skip move →</button>
+      <button class="wu-btn-primary" onclick="warmupFinish()">Start run now</button>
+    </div>
+    <button class="wu-cancel" onclick="stopWarmup()">Cancel warm-up</button>
   </div>
 </div>
 
@@ -2641,6 +2697,100 @@ function lapPaceCallout(lap, actualSecPerKm){
   const d = Math.round(Math.abs(diff));
   if (diff > 0) return `That lap, ${paceStr}. About ${d} seconds slower than goal — pick up the pace.`;
   return `That lap, ${paceStr}. About ${d} seconds faster than goal — ease back to save energy.`;
+}
+
+// ════════════════════════════════════════
+// 5-MINUTE WARM-UP (injury prevention, tailored to today's check-in)
+// ════════════════════════════════════════
+// Gentle DYNAMIC warm-up (not rehab loading). Core drills everyone does; targeted
+// mobility is added for any pain areas flagged in today's check-in. Not medical advice.
+const WARMUP_CORE = [
+  {name:'Easy march on the spot', cue:'Gentle marching, lifting the knees — let your breathing and heart rate come up.', secs:40},
+  {name:'Leg swings', cue:'Hold a wall. Swing each leg front-to-back, then side-to-side. Loosen the hips.', secs:40},
+  {name:'Walking lunges', cue:'Slow, controlled lunges with an easy overhead reach. Feel the hips open.', secs:40},
+  {name:'Ankle circles & calf raises', cue:'Circle each ankle both ways, then slow rises onto your toes. Wake up the lower legs.', secs:30},
+  {name:'Glute bridges', cue:'Squeeze the glutes at the top (or standing hip hinges). Switch on the posterior chain.', secs:40},
+];
+const WARMUP_AREA = {
+  heel:     [{name:'Calf stretch & foot doming', cue:'Wall calf stretch ~20s each side, then gently lift your arch without curling the toes. Preps the plantar fascia.', secs:50}],
+  shin:     [{name:'Toe walks & ankle tips', cue:'Walk on your toes, then rock the toes up toward your shins. Eases shin and ankle load.', secs:45}],
+  knee:     [{name:'Glute activation & mini-squats', cue:'Standing hip abductions each side, then slow shallow squats with knees tracking over the toes.', secs:50}],
+  achilles: [{name:'Gentle calf raises & stretch', cue:'Slow, pain-free two-leg calf raises, then an easy calf stretch. Warm the Achilles gradually — no bouncing.', secs:50}],
+  hip:      [{name:'Hip openers & side steps', cue:'Standing hip circles each way, then a few lateral side steps. Wake up the hips and ITB area.', secs:50}],
+};
+const WARMUP_EXTRA = [
+  {name:'High knees', cue:'Light, quick high knees on the spot — stay tall and relaxed.', secs:30},
+  {name:'Gentle strides in place', cue:'Bounce lightly on the balls of your feet, a touch quicker — get ready to run.', secs:40},
+];
+// Pain areas flagged today (saved check-in first, else the in-progress draft).
+function todaysPainAreas(){
+  const today = (APP.checkIns||[]).find(c=>c.date===todayKey());
+  const src = today || (typeof checkinDraft!=='undefined' ? checkinDraft : null);
+  return ((src && src.pain) || []).filter(p=>p && p!=='none');
+}
+function buildWarmup(){
+  const seq = WARMUP_CORE.slice();
+  const targeted = [];
+  todaysPainAreas().forEach(a=>{ if(WARMUP_AREA[a]) targeted.push(...WARMUP_AREA[a]); });
+  if(targeted.length) seq.push(...targeted.slice(0,2)); else seq.push(...WARMUP_EXTRA);
+  return seq;
+}
+
+// Start Run tap → if today's check-in said "rest / don't run" (red verdict), caution first.
+function todaysVerdict(){ const c=(APP.checkIns||[]).find(x=>x.date===todayKey()); return c ? c.cls : null; }
+function onStartRunTap(){
+  if(todaysVerdict()==='red'){ showRestCaution(); return; }  // check-in flagged: don't run today
+  promptWarmup();
+}
+function showRestCaution(){
+  const c=(APP.checkIns||[]).find(x=>x.date===todayKey());
+  const why = (c && c.painLevel>=3) ? `You rated your pain ${c.painLevel}/5 today.` : `Your readiness was low in today's check-in.`;
+  document.getElementById('restcaution-body').textContent = `${why} Running now could turn a niggle into a longer layoff — a rest or cross-training day often does more for your training. Not medical advice; if pain is sharp or lasting, get it checked.`;
+  document.getElementById('restcaution-overlay').classList.add('visible');
+}
+function closeRestCaution(){ document.getElementById('restcaution-overlay').classList.remove('visible'); }
+function runAnyway(){ closeRestCaution(); promptWarmup(); }   // acknowledged → still offer a warm-up
+
+// Pop-up offered when you tap "Start Run" on a plan workout.
+function promptWarmup(){ if(!APP.currentWorkout) return; document.getElementById('warmup-prompt-overlay').classList.add('visible'); }
+function closeWarmupPrompt(){ document.getElementById('warmup-prompt-overlay').classList.remove('visible'); }
+function warmupThenRun(){ closeWarmupPrompt(); startWarmup(()=>startRun()); }
+function skipWarmupStartRun(){ closeWarmupPrompt(); startRun(); }
+
+// Guided warm-up player (a simple per-move countdown that auto-advances).
+let WARMUP = null;
+function startWarmup(onDone){
+  const seq = buildWarmup();
+  WARMUP = { seq, idx:0, remain:seq[0].secs, onDone, interval:null };
+  document.getElementById('warmup-overlay').classList.add('visible');
+  renderWarmupStep(true);
+  WARMUP.interval = setInterval(warmupTick, 1000);
+}
+function wuUpdateProgress(){
+  const w=WARMUP; if(!w) return;
+  const d=w.seq[w.idx];
+  const done = w.seq.slice(0,w.idx).reduce((a,x)=>a+x.secs,0) + (d.secs - w.remain);
+  const total = w.seq.reduce((a,x)=>a+x.secs,0);
+  document.getElementById('wu-bar-fill').style.width = Math.round(done/total*100)+'%';
+  document.getElementById('wu-time').textContent = w.remain+'s';
+}
+function renderWarmupStep(announce){
+  const w=WARMUP; if(!w) return;
+  const d=w.seq[w.idx];
+  document.getElementById('wu-step').textContent = `Move ${w.idx+1} of ${w.seq.length}`;
+  document.getElementById('wu-name').textContent = d.name;
+  document.getElementById('wu-cue').textContent = d.cue;
+  wuUpdateProgress();
+  if(announce!==false) speak(d.name, 'high');
+}
+function warmupTick(){ const w=WARMUP; if(!w) return; w.remain--; if(w.remain<=0){ warmupNext(); return; } wuUpdateProgress(); }
+function warmupNext(){ const w=WARMUP; if(!w) return; w.idx++; if(w.idx>=w.seq.length){ warmupFinish(); return; } w.remain=w.seq[w.idx].secs; renderWarmupStep(); }
+function warmupFinish(){ const cb = WARMUP && WARMUP.onDone; stopWarmup(); if(typeof cb==='function') cb(); }  // → start the run
+function stopWarmup(){
+  if(WARMUP && WARMUP.interval) clearInterval(WARMUP.interval);
+  WARMUP = null;
+  try{ window.speechSynthesis.cancel(); }catch(e){}
+  document.getElementById('warmup-overlay').classList.remove('visible');
 }
 
 function startRun(runOverride) {
