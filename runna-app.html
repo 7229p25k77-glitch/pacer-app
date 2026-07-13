@@ -579,6 +579,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 /* PROFILE GATE — "Who's running?" picker */
 #profile-gate{display:none;position:fixed;inset:0;z-index:800;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;overflow-y:auto;}
 #profile-gate.visible{display:flex;}
+/* Account / sign-in overlay */
+#auth-overlay{display:none;position:fixed;inset:0;z-index:810;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;overflow-y:auto;}
+#auth-overlay.visible{display:flex;}
+.auth-card{width:100%;max-width:340px;display:flex;flex-direction:column;text-align:center;}
+.auth-title{font-size:24px;font-weight:800;margin:10px 0 6px;}
+.auth-sub{font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:20px;}
+.auth-input{margin-bottom:10px;text-align:left;}
+.auth-error{color:var(--warn);font-size:13px;min-height:18px;margin:2px 0 8px;line-height:1.4;}
+.auth-toggle{background:none;border:none;color:var(--accent);font-size:14px;font-weight:600;padding:14px;cursor:pointer;}
+.auth-skip{background:none;border:none;color:var(--text2);font-size:14px;padding:6px;cursor:pointer;text-decoration:underline;}
+.auth-skip-note{font-size:12px;color:var(--text3);line-height:1.45;margin-top:10px;}
 .gate-close{position:absolute;top:18px;right:20px;background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;line-height:1;}
 .gate-logo{font-size:46px;margin-bottom:10px;}
 .gate-title{font-size:26px;font-weight:800;letter-spacing:-0.5px;text-align:center;}
@@ -775,6 +786,10 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
       <div class="stat-box"><div class="stat-val accent-val" id="profile-streak">0🔥</div><div class="stat-lbl">Streak</div></div>
     </div>
     <div class="settings-group">
+      <div class="settings-label">Account</div>
+      <div class="settings-card" id="account-card"></div>
+    </div>
+    <div class="settings-group">
       <div class="settings-label">Milestones</div>
       <div class="settings-card">
         <div class="settings-row" onclick="openAchievements()"><span class="sr-icon">🏆</span><span class="sr-label">Achievements</span><span class="sr-value" id="sr-achievements">0 complete</span><span class="sr-arrow">›</span></div>
@@ -887,6 +902,22 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   <div class="gate-list" id="gate-list"></div>
   <div id="gate-wizard" style="display:none;width:100%;max-width:340px;"></div>
   <button class="gate-add" id="gate-add-btn" onclick="showCreateProfile(false)">+ Add Profile</button>
+</div>
+
+<!-- ACCOUNT / SIGN-IN -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="gate-logo">🏃</div>
+    <div class="auth-title" id="auth-title">Welcome to Pacer</div>
+    <div class="auth-sub" id="auth-sub"></div>
+    <input class="edit-input auth-input" id="auth-email" type="email" placeholder="Email" autocomplete="email" autocapitalize="none" spellcheck="false">
+    <input class="edit-input auth-input" id="auth-pass" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+    <div class="auth-error" id="auth-error"></div>
+    <button class="edit-save-btn" id="auth-submit" onclick="authSubmit()">Create account</button>
+    <button class="auth-toggle" id="auth-toggle" onclick="authToggleMode()">Already have an account? Log in</button>
+    <button class="auth-skip" id="auth-skip" onclick="authSkip()">Continue without an account</button>
+    <div class="auth-skip-note" id="auth-skip-note"></div>
+  </div>
 </div>
 
 <!-- GPS INFO + TOGGLE -->
@@ -1048,6 +1079,8 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
   </div>
 </div>
 
+<!-- Supabase client (accounts + cross-device sync). Public anon key — safe in the client; RLS protects data. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ════════════════════════════════════════
 // PERSISTENCE & PROFILES — localStorage
@@ -1061,9 +1094,127 @@ const MAX_PROFILES = 5;
 const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', planWeeks:8, music:'Spotify', avatarDataUrl:null };
 let REG = { activeId:null, profiles:[] };
 
-function saveRegistry(){ try { localStorage.setItem(REG_KEY, JSON.stringify(REG)); } catch(e){} }
+function saveRegistry(){ try { localStorage.setItem(REG_KEY, JSON.stringify(REG)); } catch(e){} if(typeof scheduleCloudPush==='function') scheduleCloudPush(); }
 function newProfileId(){ return 'p_' + Date.now() + '_' + Math.floor(Math.random()*1000); }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ════════════════════════════════════════
+// ACCOUNTS + CROSS-DEVICE SYNC (Supabase)
+// ════════════════════════════════════════
+// The whole local state (registry + every profile's data) is stored as ONE JSON
+// blob per account. Local stays the working copy (offline-first); the cloud is the
+// backup/sync, pushed on save and pulled on login. Last-write-wins across devices.
+const SB_URL = 'https://lbprznrfoepcptvvknwd.supabase.co';
+const SB_KEY = 'sb_publishable_vnm0BrL8DApdsmY_Lj-UMw_7gMm6jpk';
+let SB = null;         // supabase client (null if the library didn't load / offline)
+let SB_USER = null;    // signed-in user (or null)
+function initSupabase(){
+  try { if (window.supabase && window.supabase.createClient) SB = window.supabase.createClient(SB_URL, SB_KEY); }
+  catch(e){ SB = null; }
+}
+async function sbSession(){ if(!SB) return null; try { const {data} = await SB.auth.getSession(); return data ? data.session : null; } catch(e){ return null; } }
+async function sbSignUp(email, password){ return await SB.auth.signUp({ email, password }); }
+async function sbSignIn(email, password){ return await SB.auth.signInWithPassword({ email, password }); }
+async function sbSignOut(){ try { if(SB) await SB.auth.signOut(); } catch(e){} SB_USER = null; }
+
+// Serialise / restore the ENTIRE device state (all profiles) as one object.
+function exportLocalState(){
+  const out = { v:1, registry:null, profiles:{} };
+  try { out.registry = JSON.parse(localStorage.getItem(REG_KEY) || 'null'); } catch(e){}
+  if (out.registry && Array.isArray(out.registry.profiles)){
+    out.registry.profiles.forEach(p=>{ try { const d = localStorage.getItem(DATA_PREFIX + p.id); if(d) out.profiles[p.id] = JSON.parse(d); } catch(e){} });
+  }
+  return out;
+}
+function importLocalState(state){
+  if (!state || !state.registry || !Array.isArray(state.registry.profiles)) return false;
+  try { localStorage.setItem(REG_KEY, JSON.stringify(state.registry)); } catch(e){}
+  Object.keys(state.profiles || {}).forEach(id=>{ try { localStorage.setItem(DATA_PREFIX + id, JSON.stringify(state.profiles[id])); } catch(e){} });
+  return true;
+}
+async function cloudPush(){
+  if (!SB || !SB_USER) return;
+  try { await SB.from('pacer_state').upsert({ user_id: SB_USER.id, data: exportLocalState(), updated_at: new Date().toISOString() }); } catch(e){}
+}
+async function cloudPull(){
+  if (!SB || !SB_USER) return null;
+  try { const {data, error} = await SB.from('pacer_state').select('data').eq('user_id', SB_USER.id).maybeSingle(); if(error||!data) return null; return data.data; } catch(e){ return null; }
+}
+// Debounced push so a burst of saves is one network write.
+let _pushTimer = null;
+function scheduleCloudPush(){ if(!SB || !SB_USER) return; if(_pushTimer) clearTimeout(_pushTimer); _pushTimer = setTimeout(cloudPush, 1500); }
+
+// ── Auth UI ──────────────────────────────────────────────────────
+// context 'new'      → suggested before a brand-new user's setup wizard
+// context 'existing' → prompt for a user who already has local data (skippable)
+let AUTH = { mode:'signup', context:'new' };
+function showAuthScreen(context){ AUTH.context = context || 'new'; AUTH.mode = 'signup'; renderAuth(); document.getElementById('auth-overlay').classList.add('visible'); }
+function hideAuthScreen(){ document.getElementById('auth-overlay').classList.remove('visible'); }
+function renderAuth(){
+  const signup = AUTH.mode === 'signup';
+  const isNew  = AUTH.context === 'new';
+  document.getElementById('auth-title').textContent = signup ? (isNew ? 'Welcome to Pacer 🏃' : 'Back up your progress') : 'Welcome back';
+  document.getElementById('auth-sub').textContent = signup
+    ? 'It’s 100% free — no card, no subscription. Create an account so your plan, runs and check-ins sync across your devices and are never lost if you change phones.'
+    : 'Log in to load your Pacer data on this device.';
+  document.getElementById('auth-submit').textContent = signup ? 'Create account' : 'Log in';
+  document.getElementById('auth-toggle').textContent = signup ? 'Already have an account? Log in' : 'New here? Create an account';
+  document.getElementById('auth-error').textContent = '';
+  document.getElementById('auth-skip').textContent = isNew ? 'Continue without an account' : 'Not now';
+  document.getElementById('auth-skip-note').textContent = 'Without an account your data lives only on this device — it won’t sync to other devices, and you’ll lose your history if you clear the app or switch phones.';
+}
+function authToggleMode(){ AUTH.mode = AUTH.mode === 'signup' ? 'login' : 'signup'; renderAuth(); }
+async function authSubmit(){
+  const email = (document.getElementById('auth-email').value || '').trim();
+  const pass  = document.getElementById('auth-pass').value || '';
+  const err   = document.getElementById('auth-error');
+  if(!email || !pass){ err.textContent = 'Enter your email and a password.'; return; }
+  if(!SB){ err.textContent = 'Can’t reach the account service — check your connection and try again.'; return; }
+  const btn = document.getElementById('auth-submit'); const label = btn.textContent; btn.disabled = true; btn.textContent = 'Please wait…';
+  let res;
+  try { res = AUTH.mode === 'signup' ? await sbSignUp(email, pass) : await sbSignIn(email, pass); }
+  catch(e){ res = { error:{ message:'Network error — try again.' } }; }
+  btn.disabled = false; btn.textContent = label;
+  if(res.error){ err.textContent = res.error.message || 'Something went wrong.'; return; }
+  const session = await sbSession();
+  if(!session){ err.textContent = 'Almost there — check your email to confirm your account, then log in.'; return; }
+  SB_USER = session.user;
+  await reconcileAndBoot();
+  hideAuthScreen();
+  updateAccountRow();
+}
+function authSkip(){
+  try { localStorage.setItem('pacer_acct_prompted','1'); } catch(e){}
+  hideAuthScreen();
+  if(AUTH.context === 'new'){ showProfileGate(); }   // → setup wizard (auto-started when no profiles)
+}
+// After sign-in/up: adopt the account's data if it has any, otherwise seed it from
+// this device (migration). Then boot into the app.
+async function reconcileAndBoot(){
+  const cloud = await cloudPull();
+  if(cloud && cloud.registry && Array.isArray(cloud.registry.profiles) && cloud.registry.profiles.length){
+    importLocalState(cloud);          // account already has data → this device now shows it
+  } else {
+    await cloudPush();                // account empty → back up whatever's on this device
+  }
+  initProfiles();
+  if(REG.activeId){ bootProfile(); }
+  else if(REG.profiles && REG.profiles.length){ REG.activeId = REG.profiles[0].id; saveRegistry(); bootProfile(); }
+  else { showProfileGate(); }         // signed in but no data anywhere → setup wizard
+}
+function updateAccountRow(){
+  const el = document.getElementById('account-card');
+  if(!el) return;
+  if(SB_USER){
+    el.innerHTML = `<div class="settings-row"><span class="sr-icon">☁️</span><span class="sr-label">Synced</span><span class="sr-value">${escapeHtml(SB_USER.email||'')}</span></div>
+      <div class="settings-row" onclick="accountSignOut()"><span class="sr-icon">🚪</span><span class="sr-label">Sign out</span><span class="sr-arrow">›</span></div>`;
+  } else {
+    el.innerHTML = `<div class="settings-row" onclick="showAuthScreen('existing')"><span class="sr-icon">☁️</span><span class="sr-label">Create account / Log in</span><span class="sr-value" style="color:var(--warn);">Not synced</span><span class="sr-arrow">›</span></div>`;
+  }
+}
+function accountSignOut(){
+  showModal('Sign out?', 'Your data stays on this device. Sign back in any time to sync again.', 'Sign out', async ()=>{ await sbSignOut(); updateAccountRow(); });
+}
 
 // Save / load the ACTIVE profile's data into its own slot
 function save() {
@@ -1077,6 +1228,7 @@ function save() {
       checkIns: APP.checkIns,
     }));
   } catch(e) {}
+  scheduleCloudPush();   // back up to the account (no-op if not signed in)
 }
 function load() {
   if (!REG.activeId) return;
@@ -1876,14 +2028,35 @@ function getPaceZones() {
 // ════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   applyTheme();
+  initSupabase();
   initProfiles();
-  if (!REG.activeId) {
-    showProfileGate();   // brand-new device → create the first profile
+
+  // Already signed in? → pull the account's data, then open the app.
+  let session = null;
+  try { session = await sbSession(); } catch(e){}
+  if (session) {
+    SB_USER = session.user;
+    const cloud = await cloudPull();
+    if (cloud && cloud.registry && Array.isArray(cloud.registry.profiles) && cloud.registry.profiles.length) { importLocalState(cloud); initProfiles(); }
+    if (REG.activeId) { bootProfile(); resumeActiveRun(); }
+    else if (REG.profiles && REG.profiles.length) { REG.activeId = REG.profiles[0].id; saveRegistry(); bootProfile(); }
+    else { showProfileGate(); }
+    updateAccountRow();
+    return;
+  }
+
+  // Not signed in:
+  if (REG.profiles && REG.profiles.length) {
+    bootProfile();       // existing local user → open their data straight away
+    resumeActiveRun();
+    updateAccountRow();
+    if (SB && !localStorage.getItem('pacer_acct_prompted')) showAuthScreen('existing');  // one-time back-up prompt
   } else {
-    bootProfile();       // open straight to the last-used profile (switch via Me → Switch profile)
-    resumeActiveRun();   // if a run was interrupted (app evicted), restore it and catch up
+    updateAccountRow();
+    if (SB) showAuthScreen('new');   // brand-new user → suggest an account before the wizard
+    else showProfileGate();          // offline / no account service → straight to the wizard
   }
 });
 
@@ -1946,7 +2119,7 @@ function showScreen(id) {
   if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
   if (id==='health-screen') renderHealth();
   if (id==='checkin-screen') renderCheckinScreen();
-  if (id==='profile-screen') updateAchievementsRow();
+  if (id==='profile-screen') { updateAchievementsRow(); updateAccountRow(); }
   if (id!=='workout-screen' && id!=='checkin-screen') APP.prevScreen=id;
   APP.currentScreen=id;
 }
