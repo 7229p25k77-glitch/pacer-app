@@ -1091,7 +1091,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 const REG_KEY      = 'pacer_registry';   // the list of profiles + which one is active
 const DATA_PREFIX  = 'pacer_data_';      // each profile's data lives at DATA_PREFIX + id
 const MAX_PROFILES = 5;
-const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', planWeeks:8, music:'Spotify', avatarDataUrl:null };
+const DEFAULT_PROFILE = { name:'Runner', goal:'5K', days:['Wed','Fri','Sun'], level:'Beginner', units:'km', planWeeks:8, music:'Spotify', avatarDataUrl:null, paceAdjust:0 };
 let REG = { activeId:null, profiles:[] };
 
 function saveRegistry(){ try { localStorage.setItem(REG_KEY, JSON.stringify(REG)); } catch(e){} if(typeof scheduleCloudPush==='function') scheduleCloudPush(); }
@@ -2009,8 +2009,19 @@ function fmtTime(sec) {
   const m = Math.floor(sec/60), s = sec%60;
   return `${m}:${s.toString().padStart(2,'0')}`;
 }
+// Runner-set goal-pace nudge (sec/km; – = faster, + = slower). Adjusted from how runs
+// feel, capped so it shifts pace TARGETS without changing session distances or difficulty.
+const PACE_ADJ_CAP = 40;
+function paceAdjustSec(){ return Math.max(-PACE_ADJ_CAP, Math.min(PACE_ADJ_CAP, (APP.profile && APP.profile.paceAdjust) || 0)); }
+function fmtPaceDelta(secPerKm){ const miles = APP.profile.units==='miles'; const v = miles ? Math.round(secPerKm*1.60934) : secPerKm; return v + ' sec/' + (miles?'mile':'km'); }
+// Step size scales with the level's pace (~1% of the easy target) so the nudge stays
+// proportional — ≈6 s/km for a newbie down to ≈4 s/km for an advanced runner (research:
+// percentage-based adjustments generalise better than a flat increment across abilities).
+function paceStep(){ const z = getPaceZones()[0]; return Math.max(3, Math.min(7, Math.round((z.lo+z.hi)/2 * 0.01))); }
+
 function getPaceZones() {
   const lv = APP.profile.level;
+  const adj = paceAdjustSec();   // shift every zone faster/slower by the runner's nudge
   const zones = {
     'Newbie':               [{z:'Easy',lo:570,hi:660},{z:'Tempo',lo:480,hi:570},{z:'Race',lo:420,hi:480}],
     'Beginner':             [{z:'Easy',lo:510,hi:600},{z:'Tempo',lo:420,hi:510},{z:'Race',lo:360,hi:420}],
@@ -2019,10 +2030,10 @@ function getPaceZones() {
     'Advanced Intermediate':[{z:'Easy',lo:375,hi:465},{z:'Tempo',lo:300,hi:375},{z:'Race',lo:240,hi:300}],
     'Advanced':             [{z:'Easy',lo:330,hi:420},{z:'Tempo',lo:270,hi:330},{z:'Race',lo:210,hi:270}],
   };
-  return (zones[lv] || zones.Beginner).map(z => ({
-    ...z,
-    loStr: fmtPace(z.lo), hiStr: fmtPace(z.hi),
-  }));
+  return (zones[lv] || zones.Beginner).map(z => {
+    const lo = z.lo + adj, hi = z.hi + adj;
+    return { z:z.z, lo, hi, loStr: fmtPace(lo), hiStr: fmtPace(hi) };
+  });
 }
 
 // ════════════════════════════════════════
@@ -2174,14 +2185,16 @@ function renderHome() {
 
 // ── Adjust plan difficulty from recent effort (feel) ratings ───────────────
 const LEVELS = ['Newbie','Beginner','Advanced Beginner','Intermediate','Advanced Intermediate','Advanced'];
-// If the last 4 rated runs were all easy → suggest a level up; all hard → down.
+// If the last 4 rated runs were all easy → nudge goal paces FASTER; all hard → SLOWER.
+// This only shifts pace targets (by paceStep(), scaled to the level), leaving level,
+// sessions and distances alone.
 function planAdjustSuggestion(){
   const runs = (APP.logs||[]).filter(l=>!isRecovery(l) && l.feel!=null);   // newest-first
   if(runs.length < 4) return null;
   const last4 = runs.slice(0,4);
-  const li = LEVELS.indexOf(APP.profile.level || 'Beginner');
-  if(last4.every(l=>l.feel<=2) && li < LEVELS.length-1) return { dir:'up',   to:LEVELS[li+1], sig:'up:'+last4[0].id };
-  if(last4.every(l=>l.feel>=4) && li > 0)               return { dir:'down', to:LEVELS[li-1], sig:'down:'+last4[0].id };
+  const adj = paceAdjustSec();
+  if(last4.every(l=>l.feel<=2) && adj > -PACE_ADJ_CAP) return { dir:'faster', sig:'up:'+last4[0].id };
+  if(last4.every(l=>l.feel>=4) && adj <  PACE_ADJ_CAP) return { dir:'slower', sig:'down:'+last4[0].id };
   return null;
 }
 function renderPlanSuggestion(){
@@ -2189,25 +2202,30 @@ function renderPlanSuggestion(){
   if(!el) return;
   const s = planAdjustSuggestion();
   if(!s || APP.profile.planSuggestDismiss === s.sig){ el.innerHTML=''; return; }
-  const up = s.dir==='up';
+  const up = s.dir==='faster';
+  const step = fmtPaceDelta(paceStep());
   el.innerHTML = `<div class="suggest-card${up?'':' down'}">
     <div class="suggest-text">${up
-      ? 'Your last 4 runs all felt easy. Ready to progress? I can step your plan up to <b>'+s.to+'</b> — slightly faster targets and tougher sessions.'
-      : 'Your last 4 runs all felt hard. To keep training safe, I can ease your plan down to <b>'+s.to+'</b>.'}</div>
+      ? 'Your last 4 runs all felt easy. Want me to nudge your goal paces about <b>'+step+' faster</b>? Same sessions and distances — just slightly quicker targets.'
+      : 'Your last 4 runs all felt hard. I can ease your goal paces about <b>'+step+' slower</b> so training stays sustainable — same sessions, just a gentler target.'}</div>
     <div class="suggest-actions">
-      <button class="suggest-yes" onclick="acceptPlanAdjust('${s.dir}','${s.to}','${s.sig}')">${up?'Level up':'Ease off'}</button>
+      <button class="suggest-yes" onclick="acceptPlanAdjust('${s.dir}','${s.sig}')">${up?'Speed up':'Ease off'}</button>
       <button class="suggest-no" onclick="dismissPlanAdjust('${s.sig}')">Not now</button>
     </div>
   </div>`;
 }
-function acceptPlanAdjust(dir, to, sig){
-  APP.profile.level = to;
+function acceptPlanAdjust(dir, sig){
+  const st   = paceStep();                // proportional to the current level's pace
+  const cur  = (APP.profile.paceAdjust) || 0;
+  const next = dir==='faster' ? cur - st : cur + st;
+  APP.profile.paceAdjust = Math.max(-PACE_ADJ_CAP, Math.min(PACE_ADJ_CAP, next));
   APP.profile.planSuggestDismiss = sig;   // don't re-prompt until a new run comes in
   save();
-  rebuildPlan();                          // regenerate plan + re-render home/plan
-  applyProfileToUI();                     // update Level shown on the profile screen
-  renderPaceGuide();
-  showModal('Plan updated', 'Your plan is now '+to+' — pace targets and sessions have been adjusted. Change it any time in Profile → Level.', 'Got it', null);
+  renderPaceGuide();                      // pace zones + lap targets read this live
+  renderHome();                           // clears the suggestion card
+  const step = fmtPaceDelta(st);
+  showModal(dir==='faster'?'Goal paces nudged faster':'Goal paces eased',
+    'Your goal paces are now about '+step+(dir==='faster'?' faster':' slower')+'. Sessions and distances are unchanged — this keeps adjusting as you log how runs feel.', 'Got it', null);
 }
 function dismissPlanAdjust(sig){
   APP.profile.planSuggestDismiss = sig;
@@ -2357,8 +2375,11 @@ function renderPaceGuide() {
       <div class="pg-right"><div class="pg-pace">${z.loStr}–${z.hiStr} ${paceLabel()}</div><div class="pg-feel">${feels[i]}</div></div>
     </div>`;
   });
+  const adj = paceAdjustSec();
+  const sub = adj===0 ? 'Adjust in Profile → Level'
+    : `Tuned ${fmtPaceDelta(Math.abs(adj))} ${adj<0?'faster':'slower'} from how your runs feel`;
   el.innerHTML = `
-    <div class="pg-header"><div class="pg-title">${APP.profile.level} pace zones</div><div class="pg-sub">Adjust in Profile → Level</div></div>
+    <div class="pg-header"><div class="pg-title">${APP.profile.level} pace zones</div><div class="pg-sub">${sub}</div></div>
     ${rows}`;
 }
 
