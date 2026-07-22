@@ -270,6 +270,39 @@ html,body{height:100%;width:100%;background:var(--bg);color:var(--text);
 
 #modal-overlay{display:none;position:fixed;inset:0;z-index:850;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
 #modal-overlay.visible{display:flex;}
+/* Trends / analytics page */
+.trends-entry{display:flex;align-items:center;justify-content:space-between;width:calc(100% - 32px);margin:0 16px 12px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;}
+.trends-entry-arrow{color:var(--text3);font-size:20px;}
+.tr-seg{display:flex;gap:5px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:4px;margin:0 16px 10px;}
+.tr-seg-btn{flex:1;padding:9px 3px;border:none;background:none;border-radius:9px;font-size:12px;font-weight:700;color:var(--text2);cursor:pointer;white-space:nowrap;}
+.tr-seg-btn.active{background:var(--accent);color:var(--ink);}
+.tr-stats{display:flex;gap:8px;margin:2px 16px 14px;}
+.tr-stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:11px 4px;text-align:center;min-width:0;}
+.tr-stat-v{font-size:16px;font-weight:800;color:var(--accent);white-space:nowrap;}
+.tr-stat-l{font-size:10px;color:var(--text2);margin-top:2px;}
+.tr-card{margin:2px 16px 16px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+.tr-chart{display:flex;align-items:flex-end;gap:6px;height:168px;padding:16px 12px 0;}
+.tr-bar-col{flex:1;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;min-width:0;}
+.tr-bar-val{font-size:9.5px;font-weight:800;color:var(--text2);margin-bottom:4px;line-height:1;white-space:nowrap;}
+.tr-bar{width:100%;max-width:38px;min-height:4px;border-radius:7px 7px 2px 2px;transition:height .4s cubic-bezier(.4,0,.2,1);background:var(--accent) linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 55%);box-shadow:inset 0 1px 0 rgba(255,255,255,.32);}
+.tr-bar.pace{background:var(--accent2) linear-gradient(180deg,rgba(255,255,255,.24),rgba(255,255,255,0) 55%);}
+.tr-xlabels{display:flex;gap:6px;padding:7px 12px 0;}
+.tr-xcell{flex:1;text-align:center;font-size:9.5px;color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tr-note{font-size:11.5px;color:var(--text2);text-align:center;margin:8px 12px 12px;}
+.tr-range{display:flex;gap:4px;padding:7px;border-top:1px solid var(--border);background:var(--surface2);}
+.tr-range-btn{flex:1;padding:8px 3px;border:none;background:none;border-radius:9px;font-size:11.5px;font-weight:700;color:var(--text2);cursor:pointer;white-space:nowrap;}
+.tr-range-btn.active{background:var(--accent);color:var(--ink);}
+.tr-empty-win-inner{padding:44px 16px;text-align:center;color:var(--text2);font-size:13px;}
+.tr-hl-title{font-size:13px;font-weight:800;color:var(--text);margin:18px 16px 8px;}
+.tr-hl{margin:0 16px 18px;background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+.tr-hl-row{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--border);}
+.tr-hl-row:last-child{border-bottom:none;}
+.tr-hl-ic{font-size:17px;}
+.tr-hl-lbl{flex:1;font-size:13px;color:var(--text2);font-weight:600;}
+.tr-hl-val{font-size:13px;font-weight:800;color:var(--text);white-space:nowrap;}
+.tr-hl-row.tappable{cursor:pointer;}
+.tr-hl-row.tappable:active{background:var(--surface2);}
+.tr-hl-arrow{color:var(--text3);font-size:18px;margin-left:2px;}
 /* Rest caution (bottom sheet) — sits above the warm-up prompt */
 #restcaution-overlay{display:none;position:fixed;inset:0;z-index:570;background:rgba(0,0,0,0.72);align-items:flex-end;justify-content:center;}
 #restcaution-overlay.visible{display:flex;}
@@ -712,6 +745,7 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
       <div class="stat-box"><div class="stat-val accent-val" id="log-km">0</div><div class="stat-lbl" id="log-km-lbl">km total</div></div>
       <div class="stat-box"><div class="stat-val accent-val" id="log-min">0</div><div class="stat-lbl">min total</div></div>
     </div>
+    <button class="trends-entry" onclick="openTrends()"><span>📈 View your trends</span><span class="trends-entry-arrow">›</span></button>
     <div id="log-entries"></div>
     <div class="empty-state" id="log-empty">
       <div class="empty-icon">👟</div>
@@ -728,6 +762,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <div class="screen-sub">Tune in to how you feel, and learn to run injury-free</div>
   </div>
   <div class="scroll-area" id="health-scroll"></div>
+</div>
+
+<!-- TRENDS (opened from the Log page) -->
+<div class="screen" id="trends-screen">
+  <div class="screen-header">
+    <button class="back-btn" onclick="showScreen('log-screen')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>Log
+    </button>
+    <div class="screen-title">Your Trends</div>
+  </div>
+  <div class="scroll-area" id="trends-body"></div>
 </div>
 
 <!-- DAILY CHECK-IN (opened from the Health page) -->
@@ -2121,8 +2166,8 @@ function setTodayLabel() {
 // ════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════
-const SCREENS=['home-screen','plan-screen','log-screen','health-screen','checkin-screen','profile-screen','workout-screen'];
-const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','health-screen':'nav-health','checkin-screen':'nav-health','profile-screen':'nav-profile'};
+const SCREENS=['home-screen','plan-screen','log-screen','health-screen','checkin-screen','trends-screen','profile-screen','workout-screen'];
+const NAV_MAP={'home-screen':'nav-home','plan-screen':'nav-plan','log-screen':'nav-log','health-screen':'nav-health','checkin-screen':'nav-health','trends-screen':'nav-log','profile-screen':'nav-profile'};
 function showScreen(id) {
   SCREENS.forEach(s=>document.getElementById(s).classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
@@ -2130,8 +2175,9 @@ function showScreen(id) {
   if (NAV_MAP[id]) document.getElementById(NAV_MAP[id]).classList.add('active');
   if (id==='health-screen') renderHealth();
   if (id==='checkin-screen') renderCheckinScreen();
+  if (id==='trends-screen') renderTrends();
   if (id==='profile-screen') { updateAchievementsRow(); updateAccountRow(); }
-  if (id!=='workout-screen' && id!=='checkin-screen') APP.prevScreen=id;
+  if (id!=='workout-screen' && id!=='checkin-screen' && id!=='trends-screen') APP.prevScreen=id;
   APP.currentScreen=id;
 }
 function closeWorkout() { showScreen(APP.prevScreen); }
@@ -4748,6 +4794,142 @@ function renderPaceChart(log, elId) {
 
 function selectPaceTab(elId, i){ const D=PACE_CHARTS[elId]; if(!D) return; D.active=i; D.sel=-1; drawPaceChart(elId); }
 function selectPaceBar(elId, i){ const D=PACE_CHARTS[elId]; if(!D) return; D.sel=(D.sel===i?-1:i); drawPaceChart(elId); }
+
+// ════════════════════════════════════════
+// TRENDS — analytics across all runs, over selectable time windows
+// ════════════════════════════════════════
+const TR_DAY = 86400000;
+let TRENDS = { metric:'distance', window:'week' };
+const TREND_METRICS = [['distance','Distance'],['pace','Pace'],['runs','Runs']];
+const TREND_WINDOWS = [['week','Week'],['2wk','2 Wks'],['month','Month'],['program','Program'],['all','All']];
+function openTrends(){ showScreen('trends-screen'); }
+function setTrendMetric(m){ TRENDS.metric=m; renderTrends(); }
+function setTrendWindow(w){ TRENDS.window=w; renderTrends(); }
+// Runs only (exclude cross-training/recovery), with a real date.
+function trendRuns(){ return (APP.logs||[]).filter(l=>l.fullDate && !isRecovery(l)); }
+function logSecs(l){ const p=(l.timeStr||'0:00').split(':').map(n=>parseInt(n)||0); return p.length>=3?p[0]*3600+p[1]*60+p[2]:p[0]*60+(p[1]||0); }
+function fmtDur(secs){ secs=Math.round(secs); const h=Math.floor(secs/3600), m=Math.round((secs%3600)/60); return h>0?`${h}h ${m}m`:`${m}m`; }
+
+// Time buckets [{t0,t1,label}] ending today, sized by the chosen window.
+function trendBuckets(window){
+  const now=new Date();
+  const endMs=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime()+TR_DAY; // tomorrow 00:00 local
+  let days, bd, mode;
+  if(window==='week'){ days=7; bd=1; mode='dow'; }
+  else if(window==='2wk'){ days=14; bd=1; mode='dom'; }
+  else if(window==='month'){ days=28; bd=7; mode='wk'; }
+  else if(window==='program'){ days=Math.max(7,(APP.profile.planWeeks||8)*7); bd=7; mode='wk'; }
+  else { // all — from the first run to today
+    const runs=trendRuns();
+    const first=runs.length?Math.min.apply(null,runs.map(r=>+new Date(r.fullDate))):endMs-7*TR_DAY;
+    const span=Math.max(1,Math.ceil((endMs-first)/TR_DAY));
+    days=span; bd = span<=91?7:30; mode = bd>=30?'mon':'wk';   // weekly ≤13wk, else monthly
+  }
+  const n=Math.max(1,Math.ceil(days/bd));
+  const buckets=[]; let t1=endMs;
+  for(let i=0;i<n;i++){ const t0=t1-bd*TR_DAY; buckets.unshift({t0,t1}); t1=t0; }
+  buckets.forEach((b,i)=>{ const d=new Date(b.t0);
+    b.label = mode==='dow' ? ['Su','Mo','Tu','We','Th','Fr','Sa'][d.getDay()]
+      : mode==='dom' ? String(d.getDate())
+      : mode==='mon' ? d.toLocaleString(undefined,{month:'short'})
+      : 'W'+(i+1); });
+  return buckets;
+}
+// Per-bucket value for the metric (distance in km, pace in sec/km, runs = count).
+function trendSeries(metric, buckets){
+  const runs=trendRuns(); const per=buckets.map(()=>({dist:0,secs:0,count:0}));
+  runs.forEach(l=>{ const t=+new Date(l.fullDate);
+    for(let i=0;i<buckets.length;i++){ if(t>=buckets[i].t0 && t<buckets[i].t1){ per[i].dist+=l.distKm||0; per[i].secs+=logSecs(l); per[i].count++; break; } } });
+  const vals=per.map(p=> metric==='distance'?p.dist : metric==='runs'?p.count : (p.dist>0?p.secs/p.dist:0));
+  return {per,vals};
+}
+// Runs falling within the window's date span (for the summary + best-run highlights).
+function trendWindowRuns(buckets){
+  const t0=buckets[0].t0, t1=buckets[buckets.length-1].t1;
+  return trendRuns().filter(l=>{const t=+new Date(l.fullDate); return t>=t0 && t<t1;});
+}
+function fmtRunDate(l){ return new Date(l.fullDate).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+// First half vs second half of the non-empty buckets → 'up' / 'down' / 'steady'.
+function trendDir(metric, vals){
+  const nz=vals.map((v,i)=>({v,i})).filter(o=>o.v>0);
+  if(nz.length<3) return null;
+  const mid=Math.ceil(nz.length/2);
+  const a=nz.slice(0,mid).reduce((s,o)=>s+o.v,0)/mid;
+  const b=nz.slice(mid).reduce((s,o)=>s+o.v,0)/(nz.length-mid);
+  if(Math.abs(b-a) < (metric==='pace'?2:a*0.06)) return 'steady';
+  return b>a?'up':'down';
+}
+function renderTrends(){
+  const el=document.getElementById('trends-body'); if(!el) return;
+  const miles=APP.profile.units==='miles';
+  const metricSel=`<div class="tr-seg">${TREND_METRICS.map(([m,l])=>`<button class="tr-seg-btn${TRENDS.metric===m?' active':''}" onclick="setTrendMetric('${m}')">${l}</button>`).join('')}</div>`;
+  // Time-range selector is attached to the bottom of the chart card.
+  const rangeBar=`<div class="tr-range">${TREND_WINDOWS.map(([w,l])=>`<button class="tr-range-btn${TRENDS.window===w?' active':''}" onclick="setTrendWindow('${w}')">${l}</button>`).join('')}</div>`;
+  if(trendRuns().length===0){
+    el.innerHTML=`<div style="height:8px;"></div>${metricSel}<div class="empty-state" style="display:flex;margin:24px 0;"><div class="empty-icon">📈</div><div class="empty-title">No runs yet</div><div class="empty-desc">Log some runs to see your trends here.</div></div>`;
+    return;
+  }
+  const buckets=trendBuckets(TRENDS.window);
+  const {per,vals}=trendSeries(TRENDS.metric,buckets);
+  const wr=trendWindowRuns(buckets);
+  const dist=wr.reduce((a,l)=>a+(l.distKm||0),0), secs=wr.reduce((a,l)=>a+logSecs(l),0);
+  const avgPace=dist>0?secs/dist:0;
+  const summary=`<div class="tr-stats">
+    <div class="tr-stat"><div class="tr-stat-v">${wr.length}</div><div class="tr-stat-l">runs</div></div>
+    <div class="tr-stat"><div class="tr-stat-v">${fmtShort(dist)}</div><div class="tr-stat-l">distance</div></div>
+    <div class="tr-stat"><div class="tr-stat-v">${fmtDur(secs)}</div><div class="tr-stat-l">time</div></div>
+    <div class="tr-stat"><div class="tr-stat-v">${avgPace>0?fmtPace(avgPace):'—'}</div><div class="tr-stat-l">avg ${paceLabel()}</div></div>
+  </div>`;
+
+  // Chart — only buckets that actually have recorded runs (skip empty days/weeks).
+  const shown=buckets.map((b,i)=>({b, v:vals[i], c:per[i].count})).filter(o=>o.c>0);
+  let chartBlock;
+  if(shown.length===0){
+    chartBlock=`<div class="tr-empty-win-inner">No runs recorded in this window yet.</div>`;
+  } else {
+    const svals=shown.map(o=>o.v);
+    const maxV=Math.max.apply(null,svals), minV=Math.min.apply(null,svals);
+    const showVals=shown.length<=8;
+    const bars=shown.map(o=>{
+      const v=o.v;
+      let h = TRENDS.metric==='pace' ? Math.round(minV/v*100) : Math.round(v/maxV*100);
+      h=Math.max(showVals?6:4, Math.min(showVals?86:98, h));
+      let vl='';
+      if(showVals){ vl = TRENDS.metric==='pace'?fmtPace(v) : TRENDS.metric==='distance'?(miles?(v*0.621371):v).toFixed(1) : String(v); }
+      return `<div class="tr-bar-col"><div class="tr-bar-val">${vl}</div><div class="tr-bar${TRENDS.metric==='pace'?' pace':''}" style="height:${h}%"></div></div>`;
+    }).join('');
+    const xlabels=`<div class="tr-xlabels">${shown.map(o=>`<div class="tr-xcell">${o.b.label}</div>`).join('')}</div>`;
+    const per={week:'day','2wk':'day',month:'week',program:'week',all:'period'}[TRENDS.window];
+    const noteBase = TRENDS.metric==='distance'?`${unitLabel()} per recorded ${per}` : TRENDS.metric==='pace'?`avg pace per recorded ${per} · taller = faster` : `runs per recorded ${per}`;
+    const dir=trendDir(TRENDS.metric, svals);
+    let dirTxt='';
+    if(dir){ dirTxt = TRENDS.metric==='pace'
+      ? (dir==='steady'?' · holding steady':(dir==='down'?' · getting faster ▲':' · easing off ▼'))
+      : (dir==='steady'?' · steady':(dir==='up'?' · trending up ▲':' · trending down ▼')); }
+    chartBlock=`<div class="tr-chart">${bars}</div>${xlabels}<div class="tr-note">${noteBase}${dirTxt}</div>`;
+  }
+
+  // Best runs + individual time stats within the window.
+  let highlights='';
+  if(wr.length){
+    const longest=wr.reduce((a,l)=>(l.distKm||0)>(a.distKm||0)?l:a);
+    const paced=wr.filter(l=>l.paceSecPerKm>0);
+    const fastest=paced.length?paced.reduce((a,l)=>l.paceSecPerKm<a.paceSecPerKm?l:a):null;
+    const longestT=wr.reduce((a,l)=>logSecs(l)>logSecs(a)?l:a);
+    // Each best run is tappable → its full analytics, incl. the route map.
+    const rowRun=(ic,lbl,val,run)=>`<div class="tr-hl-row tappable" onclick="openRunAnalytics(${run.id},{from:'log'})"><span class="tr-hl-ic">${ic}</span><span class="tr-hl-lbl">${lbl}</span><span class="tr-hl-val">${val}</span><span class="tr-hl-arrow">›</span></div>`;
+    const rowPlain=(ic,lbl,val)=>`<div class="tr-hl-row"><span class="tr-hl-ic">${ic}</span><span class="tr-hl-lbl">${lbl}</span><span class="tr-hl-val">${val}</span></div>`;
+    highlights=`<div class="tr-hl-title">Best runs in this window</div><div class="tr-hl">
+      ${rowRun('🏆','Longest run', `${fmtShort(longest.distKm||0)} · ${fmtRunDate(longest)}`, longest)}
+      ${fastest?rowRun('⚡','Fastest pace', `${fmtPace(fastest.paceSecPerKm)} ${paceLabel()} · ${fmtRunDate(fastest)}`, fastest):''}
+      ${rowRun('⏱️','Longest time', `${fmtDur(logSecs(longestT))} · ${fmtRunDate(longestT)}`, longestT)}
+      ${rowPlain('📊','Average run', `${fmtShort(dist/wr.length)} · ${fmtDur(secs/wr.length)}`)}
+    </div><div class="tr-note" style="margin:6px 16px 16px;">Tap a run to revisit its map &amp; splits</div>`;
+  }
+
+  const card=`<div class="tr-card">${chartBlock}${rangeBar}</div>`;
+  el.innerHTML=`<div style="height:8px;"></div>${metricSel}${summary}${card}${highlights}`;
+}
 
 function drawPaceChart(elId) {
   const D = PACE_CHARTS[elId];
