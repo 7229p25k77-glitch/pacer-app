@@ -657,6 +657,22 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
 /* APPEARANCE / THEME SHEET */
 #theme-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
 #theme-overlay.visible{display:flex;}
+
+/* FREE RUN — PACE TEMPLATE PICKER */
+#freerun-overlay{display:none;position:fixed;inset:0;z-index:520;background:rgba(0,0,0,0.7);align-items:flex-end;justify-content:center;}
+#freerun-overlay.visible{display:flex;}
+.frt-dur{display:flex;gap:8px;margin-bottom:14px;}
+.frt-dur-btn{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 4px;font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;}
+.frt-dur-btn.active{background:var(--accent-dim);border-color:var(--accent);color:var(--accent);}
+.frt-list{display:flex;flex-direction:column;gap:8px;margin-bottom:14px;}
+.frt-opt{display:flex;align-items:center;gap:12px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;cursor:pointer;text-align:left;width:100%;color:var(--text);}
+.frt-opt:active{background:var(--accent-dim);border-color:var(--accent);}
+.frt-opt-icon{font-size:24px;line-height:1;flex-shrink:0;}
+.frt-opt-txt{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.frt-opt-title{font-size:15px;font-weight:700;}
+.frt-opt-time{font-size:11px;font-weight:700;color:var(--text3);margin-left:7px;}
+.frt-opt-focus{font-size:11.5px;color:var(--text2);line-height:1.3;}
+.frt-opt-pace{font-size:11px;font-weight:700;color:var(--accent);}
 </style>
 </head>
 <body>
@@ -984,6 +1000,17 @@ html.light .analytics-header{background:linear-gradient(160deg,#E2F6EE 0%,var(--
     <button class="modal-btn modal-btn-secondary" id="theme-dark-btn" onclick="pickTheme('dark')">🌙 Dark</button>
     <button class="modal-btn modal-btn-secondary" id="theme-light-btn" onclick="pickTheme('light')">☀️ Light</button>
     <button class="modal-btn modal-btn-secondary" onclick="closeTheme()">Close</button>
+  </div>
+</div>
+
+<!-- FREE RUN — PACE TEMPLATE PICKER -->
+<div id="freerun-overlay" onclick="closeFreeRun()">
+  <div class="modal-sheet" onclick="event.stopPropagation()">
+    <div class="modal-title">🎽 Free Run</div>
+    <div class="modal-body">Pick how long you'll run and a focus — each session trains a different pace, and it's sized to your time and tuned to your level.</div>
+    <div id="freerun-dur" class="frt-dur"></div>
+    <div id="freerun-opts" class="frt-list"></div>
+    <button class="modal-btn modal-btn-secondary" onclick="closeFreeRun()">Close</button>
   </div>
 </div>
 
@@ -2022,6 +2049,9 @@ const APP = {
   prevScreen: 'home-screen',
   currentWorkout: null, // {weekIndex, runIndex}
   recovery: null,       // active recovery/cross-training session meta (or null)
+  freeRun: false,       // active session is an off-plan Free Run
+  freeStructured: false,// Free Run built from a pace template (has real laps → show lap UI)
+  freeName: null,       // display name for a templated Free Run (e.g. "Tempo Builder")
   timer: {
     interval: null, elapsed: 0, paused: false,
     distKm: 0, phaseIndex: 0, phaseElapsed: 0,
@@ -3056,8 +3086,14 @@ function stopWarmup(){
 function startRun(runOverride) {
   const cw = APP.currentWorkout;
   let run;
-  if (runOverride) { run = runOverride; APP.freeRun = true; }   // free run / recovery (no plan)
-  else { if (!cw) return; run = APP.plan[cw.wi].runs[cw.ri]; APP.freeRun = false; }
+  if (runOverride) {                                            // free run / recovery (no plan)
+    run = runOverride; APP.freeRun = true;
+    APP.freeStructured = !!runOverride.structured;              // templated free run → real laps
+    APP.freeName = runOverride.freeName || null;
+  } else {
+    if (!cw) return; run = APP.plan[cw.wi].runs[cw.ri];
+    APP.freeRun = false; APP.freeStructured = false; APP.freeName = null;
+  }
   const isRecovery = !!(runOverride && runOverride.recovery);
   if (!isRecovery) APP.recovery = null;                    // plan/free runs aren't recovery
   const wantGPS = runOverride ? (runOverride.gps !== false) : true;
@@ -3225,7 +3261,7 @@ function stepTimerSecond(t, live) {
   // its planned time is up, that they can finish whenever they're ready.
   if (
     live &&
-    !APP.freeRun && !APP.recovery && t.phases.length > 1 &&
+    (!APP.freeRun || APP.freeStructured) && !APP.recovery && t.phases.length > 1 &&
     t.phaseIndex === t.phases.length - 1 &&
     t.phaseElapsed >= estSecs &&
     !t.spokenFinalDone
@@ -3288,7 +3324,8 @@ function saveActiveRun() {
       noDistance:t.noDistance, usesGPS:t.usesGPS,
       spokenMidLap:t.spokenMidLap, spokenCountdown:t.spokenCountdown,
       spokenFinalDone:t.spokenFinalDone,
-      freeRun:APP.freeRun, recovery:APP.recovery, currentWorkout:APP.currentWorkout,
+      freeRun:APP.freeRun, freeStructured:APP.freeStructured, freeName:APP.freeName,
+      recovery:APP.recovery, currentWorkout:APP.currentWorkout,
     }));
   } catch (e) { /* quota or unavailable — fine */ }
 }
@@ -3314,7 +3351,8 @@ function resumeActiveRun() {
   t.spokenFinalDone=!!snap.spokenFinalDone;
   t.lastTickMs=snap.savedAt;                 // catch-up anchor
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
-  APP.freeRun=!!snap.freeRun; APP.recovery=snap.recovery||null; APP.currentWorkout=snap.currentWorkout||null;
+  APP.freeRun=!!snap.freeRun; APP.freeStructured=!!snap.freeStructured; APP.freeName=snap.freeName||null;
+  APP.recovery=snap.recovery||null; APP.currentWorkout=snap.currentWorkout||null;
   const dg=document.getElementById('run-diagram'); if(dg) dg.dataset.bp='';   // rebuild the track for the resumed run
   document.getElementById('pause-btn').textContent=t.paused?'▶':'⏸';
   document.getElementById('run-timer').classList.add('visible');
@@ -3333,7 +3371,7 @@ function updateTimerUI() {
   document.getElementById('timer-dist').textContent = t.noDistance ? '—' : fmt(t.distKm).replace(' ','');
   const phase = t.phases[t.phaseIndex];
   document.getElementById('timer-phase').textContent = phase?phase.label.slice(0,30):'COMPLETE';
-  document.getElementById('timer-seg-label').textContent = APP.recovery ? 'Recovery session — tap Finish when done' : (APP.freeRun ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`);
+  document.getElementById('timer-seg-label').textContent = APP.recovery ? 'Recovery session — tap Finish when done' : ((APP.freeRun && !APP.freeStructured) ? 'Free run — tap Finish when done' : `Lap ${t.phaseIndex+1} of ${t.phases.length}`);
   updateRunDiagram();
   if (t.elapsed>0 && t.distKm>0) {
     const spk = t.elapsed/t.distKm;
@@ -3361,8 +3399,9 @@ function updateRunDiagram() {
   const dg = document.getElementById('run-diagram');
   const seg = document.getElementById('timer-seg-label');
   if (!dg) return;
-  // Free run / recovery / single-lap sessions have no lap structure to show.
-  if (APP.freeRun || APP.recovery || !t.phases || t.phases.length <= 1) {
+  // Open free run / recovery / single-lap sessions have no lap structure to show.
+  // Templated free runs DO have laps, so they keep the diagram.
+  if ((APP.freeRun && !APP.freeStructured) || APP.recovery || !t.phases || t.phases.length <= 1) {
     dg.style.display = 'none';
     if (seg) seg.style.display = '';
     return;
@@ -3498,7 +3537,7 @@ function finishRun() {
     month: now.toLocaleString('default',{month:'short'}).toUpperCase(),
     fullDate: now.toISOString(),
     type: rec ? 'recovery' : (isFree ? 'free' : (run ? run.type : 'easy')),
-    name: rec ? rec.name : (isFree ? 'Free Run' : (run ? (document.getElementById('wo-title').textContent) : 'Run')),
+    name: rec ? rec.name : (isFree ? (APP.freeName || 'Free Run') : (run ? (document.getElementById('wo-title').textContent) : 'Run')),
     activity: rec ? rec.id : null,   // recovery activity id (walk/cycle/swim/…)
     icon: rec ? rec.icon : null,
     distKm, timeStr, paceSecPerKm,
@@ -4400,10 +4439,166 @@ function quickStartNextRun(){
   document.getElementById('wo-title').textContent = `${typeLabels[run.type]||'Run'} — Week ${wk.weekNum}`;
   startRun();
 }
-// Start an unguided free run that just logs time, distance & pace
+// ════════════════════════════════════════
+// FREE-RUN PACE TEMPLATES
+// The Free Run button opens a picker of optional structured sessions. Each one
+// targets a different pace zone; the paces come from getPaceZones() (already tuned
+// per level + feel-nudge) and the volume/reps scale with the runner's level, so every
+// template auto-adjusts to who's running. "Open Run" keeps the old unguided behaviour.
+// ════════════════════════════════════════
+const FREE_TEMPLATES = [
+  { id:'open',        icon:'🎽', title:'Open Run',        zone:null, focus:'Unguided — just run at your own pace, no targets.' },
+  { id:'easy',        icon:'🌱', title:'Easy Base',       zone:0,    focus:'Aerobic base — hold an easy, conversational pace.' },
+  { id:'tempo',       icon:'🔥', title:'Tempo Builder',   zone:1,    focus:'Lactate threshold — sustained comfortably-hard tempo.' },
+  { id:'intervals',   icon:'⚡', title:'Speed Intervals', zone:2,    focus:'Speed & power — short fast reps with recoveries.' },
+  { id:'progression', icon:'📈', title:'Progression',     zone:null, focus:'Build the gears — start easy, finish fast.' },
+];
+
+function _levelIdx(){ return Math.max(0, LEVELS.indexOf(APP.profile.level)); }
+
+// A time-based lap: convert target minutes → distance via the lap's zone pace, so
+// the run timer's estSecs comes out ≈ the minutes asked for. Lap names carry a run
+// keyword (run/jog/tempo/interval/walk) so pace + walk-detection classify them right,
+// and end in "— N min" for the voice announcements.
+function _ftLap(mins, color, name, detail){
+  const pace = lapPaceSecPerKm(color, name);      // sec/km (walk pace for walk/warm/cool names)
+  return { name:`${name} — ${mins} min`, color, detail, distKm: Math.max(0.05, (mins*60)/pace) };
+}
+
+// How long the runner wants to be out (total minutes, incl. warm-up + cool-down).
+const FREE_MINUTES = [20, 30, 45, 60];
+let _freeMins = 30;
+
+// Build a template's laps, sized to fit the picked total time (T) and shaped by the
+// runner's level (li: 0 Newbie … 5 Advanced — sets run/walk chunking + rep intensity).
+// The paces themselves come from the level-tuned zones inside _ftLap.
+function buildFreeTemplate(id, mins){
+  const li = _levelIdx();
+  const rw = usesRunWalk(APP.profile.level);   // easiest 3 levels use run/walk intervals
+  const T  = Math.max(15, mins || _freeMins);
+
+  if (id === 'easy') {
+    const warm = 3, cool = 3;
+    const main = Math.max(6, T - warm - cool);   // fill the rest with easy running
+    const laps = [ _ftLap(warm, 'lap-green', 'Warm-up walk', 'Ease in and loosen up.') ];
+    if (rw) {                                    // run/walk: build the volume in chunks
+      const chunk = 3 + li;                      // 3 / 4 / 5 min run chunks
+      let done = 0;                              // counts run + walk so it fits the budget
+      while (done < main) {
+        const run = Math.min(chunk, main - done);
+        laps.push(_ftLap(run, 'lap-green', 'Easy run', 'Relaxed, conversational effort.'));
+        done += run;
+        if (done < main) {
+          const w = Math.min(1, main - done);
+          laps.push(_ftLap(w, 'lap-green', 'Walk break', 'Easy walk — catch your breath.'));
+          done += w;
+        }
+      }
+    } else {
+      laps.push(_ftLap(main, 'lap-green', 'Easy run', 'Hold an easy, conversational pace the whole way.'));
+    }
+    laps.push(_ftLap(cool, 'lap-green', 'Cool-down walk', 'Let your heart rate settle.'));
+    return laps;
+  }
+
+  if (id === 'tempo') {
+    const warm = 5, cool = 5, lead = 4;
+    const budget = Math.max(6, T - warm - cool - lead);     // tempo blocks + jogs between
+    const blocks = Math.max(1, Math.min(4, Math.round(budget / 10)));  // ~10 min per block
+    const each   = Math.max(3, Math.round((budget - (blocks - 1) * 2) / blocks));
+    const laps = [
+      _ftLap(warm, 'lap-green', 'Warm-up walk', 'Ease in before the work.'),
+      _ftLap(lead, 'lap-green', 'Easy jog', 'Lift gently toward tempo effort.'),
+    ];
+    for (let b = 0; b < blocks; b++){
+      laps.push(_ftLap(each, 'lap-purple', 'Tempo', 'Comfortably hard — controlled but strong.'));
+      if (b < blocks - 1) laps.push(_ftLap(2, 'lap-green', 'Easy jog', 'Float between tempo blocks.'));
+    }
+    laps.push(_ftLap(cool, 'lap-green', 'Cool-down walk', 'Let your heart rate settle.'));
+    return laps;
+  }
+
+  if (id === 'intervals') {
+    const warm = 4, lead = 3, cool = 5;
+    const budget  = Math.max(4, T - warm - lead - cool);
+    const hard    = li >= 3 ? 2 : 1;                        // 1 or 2 min hard
+    const recover = Math.max(1, 3 - Math.floor(li/2));      // 3 … 1 min recovery
+    // last rep has no trailing recovery, so add one back when working out the count
+    const reps = Math.max(2, Math.round((budget + recover) / (hard + recover)));
+    const laps = [
+      _ftLap(warm, 'lap-green', 'Warm-up walk', 'Ease in before the fast reps.'),
+      _ftLap(lead, 'lap-green', 'Easy jog', 'Wake the legs up.'),
+    ];
+    for (let r = 0; r < reps; r++){
+      laps.push(_ftLap(hard, 'lap-orange', 'Speed interval', 'Fast and strong — near race effort.'));
+      if (r < reps - 1)
+        laps.push(rw ? _ftLap(recover, 'lap-green', 'Recovery walk', 'Walk it out until you\'re ready.')
+                     : _ftLap(recover, 'lap-green', 'Easy jog', 'Easy jog to recover.'));
+    }
+    laps.push(_ftLap(cool, 'lap-green', 'Cool-down walk', 'Let your heart rate settle.'));
+    return laps;
+  }
+
+  if (id === 'progression') {
+    const warm = 3, cool = 3;
+    const main  = Math.max(6, T - warm - cool);
+    const fast  = Math.max(2, Math.round(main * 0.15));     // finish fast (~15%)
+    const tempo = Math.max(3, Math.round(main * 0.30));     // shift up (~30%)
+    const easy  = Math.max(3, main - tempo - fast);         // start easy (rest)
+    return [
+      _ftLap(warm,  'lap-green',  'Warm-up walk', 'Ease in.'),
+      _ftLap(easy,  'lap-green',  'Easy run',     'Start relaxed and conversational.'),
+      _ftLap(tempo, 'lap-purple', 'Tempo',        'Shift up — comfortably hard.'),
+      _ftLap(fast,  'lap-orange', 'Race finish',  'Empty the tank — strong to the line.'),
+      _ftLap(cool,  'lap-green',  'Cool-down walk', 'Let your heart rate settle.'),
+    ];
+  }
+  return null;
+}
+
+// Free Run button → open the picker (with level-tuned target paces shown).
 function startFreeRun(){
+  renderFreeRunPicker();
+  document.getElementById('freerun-overlay').classList.add('visible');
+}
+function closeFreeRun(){ document.getElementById('freerun-overlay').classList.remove('visible'); }
+
+// Pick how long to run for; re-render so the pills + template sizing update.
+function setFreeMins(n){ _freeMins = n; renderFreeRunPicker(); }
+
+function renderFreeRunPicker(){
+  const zones = getPaceZones();
+  const pl = paceLabel();
+  document.getElementById('freerun-dur').innerHTML = FREE_MINUTES.map(n =>
+    `<button class="frt-dur-btn${n===_freeMins?' active':''}" onclick="setFreeMins(${n})">${n} min</button>`
+  ).join('');
+  document.getElementById('freerun-opts').innerHTML = FREE_TEMPLATES.map(t => {
+    const pace = t.zone != null
+      ? `<span class="frt-opt-pace">Target ${zones[t.zone].loStr}–${zones[t.zone].hiStr}${pl}</span>` : '';
+    // Structured templates fit the picked time; Open Run has no set length.
+    const time = t.id === 'open' ? '' : `<span class="frt-opt-time">~${_freeMins} min</span>`;
+    return `<button class="frt-opt" onclick="pickFreeTemplate('${t.id}')">
+      <span class="frt-opt-icon">${t.icon}</span>
+      <span class="frt-opt-txt">
+        <span class="frt-opt-title">${t.title}${time}</span>
+        <span class="frt-opt-focus">${t.focus}</span>
+        ${pace}
+      </span>
+    </button>`;
+  }).join('');
+}
+
+function pickFreeTemplate(id){
+  closeFreeRun();
   APP.currentWorkout = null;
-  startRun({ type:'free', distKm:0, laps:[{ name:'Free Run', color:'lap-green', detail:'Run at your own pace', distKm:0 }] });
+  if (id === 'open'){   // unguided free run — just logs time, distance & pace
+    startRun({ type:'free', distKm:0, laps:[{ name:'Free Run', color:'lap-green', detail:'Run at your own pace', distKm:0 }] });
+    return;
+  }
+  const meta = FREE_TEMPLATES.find(t => t.id === id);
+  const laps = buildFreeTemplate(id, _freeMins);
+  if (!meta || !laps) return;
+  startRun({ type:'free', structured:true, freeName:meta.title, distKm:0, laps });
 }
 
 // ════════════════════════════════════════
