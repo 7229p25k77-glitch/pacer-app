@@ -2795,6 +2795,16 @@ function lapPaceSecPerKm(color, name){
   if (color === 'lap-purple') return mid(zones[1]); // Tempo
   return mid(zones[0]);                              // Easy (default green runs)
 }
+// The goal-pace RANGE (sec/km, lo=fastest edge, hi=slowest edge) for a running lap,
+// so feedback checks "are they inside the zone" instead of nudging to the exact middle.
+// Walk/warm/cool laps have no running goal → null (no pace callout for them anyway).
+function lapPaceRange(color, name){
+  const n = (name || '').toLowerCase();
+  if (n.includes('walk') || n.includes('warm') || n.includes('cool') || n.includes('recovery')) return null;
+  const zones = getPaceZones();
+  const z = color === 'lap-orange' ? zones[2] : color === 'lap-purple' ? zones[1] : zones[0];
+  return { lo: z.lo, hi: z.hi };
+}
 function calcGPSDistance(positions) {
   let total = 0;
   let last = null;
@@ -2930,6 +2940,16 @@ function lapPaceCallout(lap, actualSecPerKm){
   const paceStr = s===0
     ? `${m} minute${m===1?'':'s'} per ${unit}`
     : `${m} minute${m===1?'':'s'} ${s} second${s===1?'':'s'} per ${unit}`;
+  // Prefer the goal-pace RANGE: anywhere inside the zone counts as on-target — we
+  // don't push the runner toward the exact midpoint, only back inside the range.
+  if (lap.paceLo && lap.paceHi) {
+    const loU = lap.paceLo * conv, hiU = lap.paceHi * conv;  // fastest / slowest edge
+    if (aP >= loU && aP <= hiU) return `That lap, ${paceStr}. Right in your goal range — hold it there.`;
+    if (aP > hiU) { const d = Math.round(aP - hiU); return `That lap, ${paceStr}. About ${d} seconds slower than your goal range — pick up the pace.`; }
+    const d = Math.round(loU - aP);
+    return `That lap, ${paceStr}. About ${d} seconds faster than your goal range — ease back to save energy.`;
+  }
+  // Fallback (e.g. runs restored from an older snapshot without a stored range).
   const goal = lap.pace || 0;
   if (!goal) return `That lap, ${paceStr}.`;
   const diff = aP - (goal * conv);           // + = slower than goal, − = faster
@@ -3050,12 +3070,15 @@ function startRun(runOverride) {
   // pace matches the home-page pace zones.
   t.phases = run.laps.map(l => {
     const pace = lapPaceSecPerKm(l.color, l.name); // sec/km
+    const range = lapPaceRange(l.color, l.name);   // {lo,hi} for running laps, else null
     return {
       label:    l.name.toUpperCase(),
       name:     l.name,
       distKm:   l.distKm,
       color:    l.color,
       pace:     pace,
+      paceLo:   range ? range.lo : null,
+      paceHi:   range ? range.hi : null,
       estSecs:  Math.max(5, Math.round(l.distKm * pace)),
     };
   });
@@ -3074,6 +3097,7 @@ function startRun(runOverride) {
   t.gpsPositions= [];
   t.spokenMidLap= new Array(t.phases.length).fill(false);
   t.spokenCountdown = new Array(t.phases.length).fill(false);
+  t.spokenFinalDone = false;   // one-shot cue when the last lap (cool-down) hits its time
 
   const dg = document.getElementById('run-diagram');
   if (dg) dg.dataset.bp = '';   // force the whole-run track to rebuild for this run
@@ -3195,6 +3219,24 @@ function stepTimerSecond(t, live) {
       }, 100);
     }
   }
+
+  // ── FINAL LAP DONE ── on the last lap (the cool-down walk) we DON'T auto-stop:
+  // the run stays open so the runner can keep walking. Just tell them once, when
+  // its planned time is up, that they can finish whenever they're ready.
+  if (
+    live &&
+    !APP.freeRun && !APP.recovery && t.phases.length > 1 &&
+    t.phaseIndex === t.phases.length - 1 &&
+    t.phaseElapsed >= estSecs &&
+    !t.spokenFinalDone
+  ) {
+    t.spokenFinalDone = true;
+    const finalName = (cp.name || '').toLowerCase();
+    const msg = finalName.includes('cool')
+      ? 'Cool-down walk complete. Nicely done — tap Finish whenever you\'re ready.'
+      : 'Workout complete. Nicely done — tap Finish whenever you\'re ready.';
+    speak(msg, 'high');
+  }
 }
 
 // Re-sync the timer the moment the app comes back to the foreground, so the
@@ -3245,6 +3287,7 @@ function saveActiveRun() {
       gpsPositions:t.gpsPositions, gpsOffset:t.gpsOffset,
       noDistance:t.noDistance, usesGPS:t.usesGPS,
       spokenMidLap:t.spokenMidLap, spokenCountdown:t.spokenCountdown,
+      spokenFinalDone:t.spokenFinalDone,
       freeRun:APP.freeRun, recovery:APP.recovery, currentWorkout:APP.currentWorkout,
     }));
   } catch (e) { /* quota or unavailable — fine */ }
@@ -3268,6 +3311,7 @@ function resumeActiveRun() {
   t.noDistance=!!snap.noDistance; t.usesGPS=!!snap.usesGPS;
   t.spokenMidLap=snap.spokenMidLap||new Array(t.phases.length).fill(false);
   t.spokenCountdown=snap.spokenCountdown||new Array(t.phases.length).fill(false);
+  t.spokenFinalDone=!!snap.spokenFinalDone;
   t.lastTickMs=snap.savedAt;                 // catch-up anchor
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
   APP.freeRun=!!snap.freeRun; APP.recovery=snap.recovery||null; APP.currentWorkout=snap.currentWorkout||null;
