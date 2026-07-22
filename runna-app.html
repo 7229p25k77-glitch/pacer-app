@@ -2959,6 +2959,16 @@ function midLapEncouragement(lap, lapNum) {
   return null;
 }
 
+// "M minutes S seconds per <unit>" for speech. Rounds to whole seconds and rolls
+// 60 over to the next minute, so paces never come out as "4 minutes 60 seconds".
+function spokenPace(secPerUnit, unit){
+  let total = Math.max(0, Math.round(secPerUnit));
+  const m = Math.floor(total/60), s = total%60;
+  return s===0
+    ? `${m} minute${m===1?'':'s'} per ${unit}`
+    : `${m} minute${m===1?'':'s'} ${s} second${s===1?'':'s'} per ${unit}`;
+}
+
 // Spoken pace feedback when a RUNNING lap ends: actual pace + whether to
 // speed up or ease off to hold the lap's goal pace (key for long-distance).
 function lapPaceCallout(lap, actualSecPerKm){
@@ -2966,10 +2976,7 @@ function lapPaceCallout(lap, actualSecPerKm){
   const conv = milesU ? 1/0.621371 : 1;      // sec/km → sec/displayed-unit
   const unit = milesU ? 'mile' : 'kilometer';
   const aP = actualSecPerKm * conv;
-  const m = Math.floor(aP/60), s = Math.round(aP%60);
-  const paceStr = s===0
-    ? `${m} minute${m===1?'':'s'} per ${unit}`
-    : `${m} minute${m===1?'':'s'} ${s} second${s===1?'':'s'} per ${unit}`;
+  const paceStr = spokenPace(aP, unit);
   // Prefer the goal-pace RANGE: anywhere inside the zone counts as on-target — we
   // don't push the runner toward the exact midpoint, only back inside the range.
   if (lap.paceLo && lap.paceHi) {
@@ -2987,6 +2994,14 @@ function lapPaceCallout(lap, actualSecPerKm){
   const d = Math.round(Math.abs(diff));
   if (diff > 0) return `That lap, ${paceStr}. About ${d} seconds slower than goal — pick up the pace.`;
   return `That lap, ${paceStr}. About ${d} seconds faster than goal — ease back to save energy.`;
+}
+
+// Distance-split callout for UNSTRUCTURED free runs: every km/mile, announce that
+// split's pace. secPerUnit is already seconds per the runner's chosen unit.
+function splitPaceCallout(n, secPerUnit){
+  const unit = APP.profile.units === 'miles' ? 'mile' : 'kilometer';
+  const label = unit.charAt(0).toUpperCase() + unit.slice(1);
+  return `${label} ${n}. That split, ${spokenPace(secPerUnit, unit)}.`;
 }
 
 // ════════════════════════════════════════
@@ -3134,6 +3149,8 @@ function startRun(runOverride) {
   t.spokenMidLap= new Array(t.phases.length).fill(false);
   t.spokenCountdown = new Array(t.phases.length).fill(false);
   t.spokenFinalDone = false;   // one-shot cue when the last lap (cool-down) hits its time
+  t.splitCount = 0;            // km/mile splits already announced (unstructured free runs)
+  t.splitLastElapsed = 0;      // elapsed (s) at the last split boundary
 
   const dg = document.getElementById('run-diagram');
   if (dg) dg.dataset.bp = '';   // force the whole-run track to rebuild for this run
@@ -3273,6 +3290,20 @@ function stepTimerSecond(t, live) {
       : 'Workout complete. Nicely done — tap Finish whenever you\'re ready.';
     speak(msg, 'high');
   }
+
+  // ── DISTANCE SPLITS ── unstructured free runs have no laps to call out, so give
+  // the runner a pace update after every full km/mile (their chosen unit).
+  if (APP.freeRun && !APP.freeStructured && !APP.recovery && !t.noDistance) {
+    const unitKm = APP.profile.units === 'miles' ? 1.60934 : 1;
+    const unitsDone = Math.floor(t.distKm / unitKm);
+    if (unitsDone > (t.splitCount || 0)) {
+      const splitSecs  = t.elapsed - (t.splitLastElapsed || 0);
+      const splitUnits = unitsDone - (t.splitCount || 0);   // normally 1
+      t.splitCount = unitsDone;
+      t.splitLastElapsed = t.elapsed;
+      if (live && splitSecs > 0) speak(splitPaceCallout(unitsDone, splitSecs / splitUnits), 'high');
+    }
+  }
 }
 
 // Re-sync the timer the moment the app comes back to the foreground, so the
@@ -3323,7 +3354,7 @@ function saveActiveRun() {
       gpsPositions:t.gpsPositions, gpsOffset:t.gpsOffset,
       noDistance:t.noDistance, usesGPS:t.usesGPS,
       spokenMidLap:t.spokenMidLap, spokenCountdown:t.spokenCountdown,
-      spokenFinalDone:t.spokenFinalDone,
+      spokenFinalDone:t.spokenFinalDone, splitCount:t.splitCount, splitLastElapsed:t.splitLastElapsed,
       freeRun:APP.freeRun, freeStructured:APP.freeStructured, freeName:APP.freeName,
       recovery:APP.recovery, currentWorkout:APP.currentWorkout,
     }));
@@ -3349,6 +3380,7 @@ function resumeActiveRun() {
   t.spokenMidLap=snap.spokenMidLap||new Array(t.phases.length).fill(false);
   t.spokenCountdown=snap.spokenCountdown||new Array(t.phases.length).fill(false);
   t.spokenFinalDone=!!snap.spokenFinalDone;
+  t.splitCount=snap.splitCount||0; t.splitLastElapsed=snap.splitLastElapsed||0;
   t.lastTickMs=snap.savedAt;                 // catch-up anchor
   if (t.interval) { clearInterval(t.interval); t.interval = null; }
   APP.freeRun=!!snap.freeRun; APP.freeStructured=!!snap.freeStructured; APP.freeName=snap.freeName||null;
